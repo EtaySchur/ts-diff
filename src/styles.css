@@ -1,0 +1,163 @@
+body {
+  font-family: Arial, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+  padding: 20px;
+  background-color: #f5f5f5;
+}
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+  background-color: white;
+  border-radius: 5px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+h1 {
+  text-align: center;
+  margin-bottom: 30px;
+  color: #333;
+}
+
+h2 {
+  color: #444;
+  margin-bottom: 20px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+.form-control {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+.error-message {
+  color: #d9534f;
+  margin-top: 5px;
+  font-size: 0.9em;
+}
+
+.btn {
+  display: inline-block;
+  padding: 10px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  text-align: center;
+}
+
+.btn-primary {
+  background-color: #0275d8;
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: #025aa5;
+}
+
+.btn-primary:disabled {
+  background-color: #7caedd;
+  cursor: not-allowed;
+}
+
+.submitted-data {
+  margin-top: 30px;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+}
+
+pre {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* New styles for the toggle and legacy example */
+.toggle-section {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.toggle-button {
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.toggle-button:hover {
+  background-color: #5a6268;
+}
+
+.legacy-formik-example {
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: #f9f9f9;
+}
+
+.legacy-formik-example h2 {
+  color: #5d6d7e;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 10px;
+}
+
+.legacy-formik-example div {
+  margin-bottom: 15px;
+}
+
+.legacy-formik-example label {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.legacy-formik-example input[type="email"],
+.legacy-formik-example input[type="password"] {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.legacy-formik-example button {
+  background-color: #28a745;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.legacy-formik-example button:hover {
+  background-color: #218838;
+}
+
+.legacy-formik-example ul {
+  margin-top: 10px;
+  padding-left: 20px;
+}
+
+.legacy-formik-example code {
+  background-color: #f0f0f0;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-family: monospace;
+} 
