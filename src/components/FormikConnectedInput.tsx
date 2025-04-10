@@ -3,21 +3,21 @@ import { connect, FormikContext } from 'formik';
 import { ExtendedFormValues } from '../types';
 import ErrorDisplay from './ErrorDisplay';
 
-// Define props with formik as required when connected
-interface ConnectedComponentProps {
+// Define the base component props
+interface BaseComponentProps {
   label: string;
   name: string;
-  formik?: FormikContext<ExtendedFormValues>; // This will be injected by connect
+}
+
+// Define props with formik when connected
+interface ConnectedComponentProps extends BaseComponentProps {
+  formik: FormikContext<ExtendedFormValues>; // This will be injected by connect
 }
 
 // Create the base component
 class FormikConnectedInputBase extends React.Component<ConnectedComponentProps> {
   render() {
     const { label, name, formik } = this.props;
-    
-    if (!formik) {
-      return null; // Safety check
-    }
     
     return (
       <div>
@@ -41,7 +41,7 @@ class FormikConnectedInputBase extends React.Component<ConnectedComponentProps> 
   }
 }
 
-// Use any to bypass type checking for now since this is legacy code using removed APIs
-const FormikConnectedInput = connect(FormikConnectedInputBase) as any;
+// Connect the component with formik
+const FormikConnectedInput = connect<BaseComponentProps, ExtendedFormValues>(FormikConnectedInputBase);
 
 export default FormikConnectedInput; 

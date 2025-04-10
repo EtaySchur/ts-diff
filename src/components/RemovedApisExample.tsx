@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { QueryClient, QueryClientProvider, useQuery } from 'react-query';
+import { QueryClient, QueryClientProvider, useQuery, QueryKey } from 'react-query';
 import { 
   Action, 
   CancelledError, 
@@ -36,8 +36,8 @@ const updateUserName: DataUpdateFunction<User, User> = (user) => {
 };
 
 // Example using EnsuredQueryKey
-const getUserQueryKey = (userId: string | number): EnsuredQueryKey<typeof userId> => {
-  return typeof userId === 'string' ? [userId] : userId;
+const getUserQueryKey = (userId: string | number): QueryKey => {
+  return typeof userId === 'string' ? [userId] : [userId];
 };
 
 // Component that uses removed APIs
@@ -131,7 +131,7 @@ const RemovedApisDemo: React.FC = () => {
         break;
       case 'success':
         if (user) {
-          action = { type: 'success', data: updateUserName(user) };
+          action = { type: 'success', data: updateUserName(user as User) };
         }
         break;
       case 'error':
@@ -198,9 +198,9 @@ const RemovedApisDemo: React.FC = () => {
       
       {user && !isLoading && (
         <div style={{ border: '1px solid #ddd', padding: '15px', borderRadius: '4px', marginBottom: '20px' }}>
-          <h3>{user.name}</h3>
-          <p>Email: {user.email}</p>
-          <p>ID: {user.id}</p>
+          <h3>{(user as User).name}</h3>
+          <p>Email: {(user as User).email}</p>
+          <p>ID: {(user as User).id}</p>
         </div>
       )}
       
