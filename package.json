@@ -23,7 +23,8 @@
     "express": "^5.1.0",
     "formik": "1.5.8",
     "react": "16.14.0",
-    "react-dom": "16.14.0"
+    "react-dom": "16.14.0",
+    "react-query": "^3.39.3"
   },
   "devDependencies": {
     "@babel/core": "^7.26.10",
