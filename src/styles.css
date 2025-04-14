@@ -90,7 +90,137 @@ pre {
   word-wrap: break-word;
 }
 
-/* Legacy Formik Example Styles */
+/* Formik Complex Form Styles */
+.formik-complex-form {
+  padding: 20px;
+  max-width: 600px;
+  margin: 0 auto;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.formik-complex-form h2 {
+  color: #5d6d7e;
+  text-align: center;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.formik-complex-form h3 {
+  margin-top: 20px;
+  margin-bottom: 10px;
+  color: #2c3e50;
+}
+
+.formik-complex-form > div > div {
+  margin-bottom: 15px;
+}
+
+.formik-complex-form label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 500;
+  color: #34495e;
+}
+
+.formik-complex-form input[type="text"],
+.formik-complex-form input[type="email"],
+.formik-complex-form input[type="password"] {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 16px;
+}
+
+.formik-complex-form input[type="checkbox"] {
+  margin-right: 8px;
+}
+
+.formik-complex-form button {
+  background-color: #3498db;
+  color: white;
+  border: none;
+  padding: 10px 15px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  margin-top: 10px;
+}
+
+.formik-complex-form button:hover {
+  background-color: #2980b9;
+}
+
+.formik-complex-form button:disabled {
+  background-color: #bdc3c7;
+  cursor: not-allowed;
+}
+
+.formik-complex-form form {
+  margin-bottom: 20px;
+}
+
+.formik-complex-form ul {
+  margin-top: 10px;
+  padding-left: 20px;
+}
+
+.formik-complex-form code {
+  background-color: #f8f9fa;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 14px;
+  color: #e74c3c;
+}
+
+.formik-complex-form fieldset {
+  margin-top: 20px;
+  margin-bottom: 20px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 15px;
+}
+
+.formik-complex-form fieldset legend {
+  padding: 0 10px;
+  font-weight: bold;
+  color: #3498db;
+}
+
+.promise-result {
+  background-color: #e8f4f8;
+  padding: 10px;
+  border-radius: 4px;
+  margin-bottom: 20px;
+  text-align: center;
+  border-left: 4px solid #3498db;
+}
+
+/* New styles for the toggle and legacy example */
+.toggle-section {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.toggle-button {
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.toggle-button:hover {
+  background-color: #5a6268;
+}
+
+/* For backwards compatibility until all references are updated */
 .legacy-formik-example {
   padding: 20px;
   max-width: 600px;
@@ -159,24 +289,6 @@ pre {
   cursor: not-allowed;
 }
 
-.legacy-formik-example form {
-  margin-bottom: 20px;
-}
-
-.legacy-formik-example ul {
-  margin-top: 10px;
-  padding-left: 20px;
-}
-
-.legacy-formik-example code {
-  background-color: #f8f9fa;
-  padding: 2px 4px;
-  border-radius: 4px;
-  font-family: monospace;
-  font-size: 14px;
-  color: #e74c3c;
-}
-
 .legacy-formik-example fieldset {
   margin-top: 20px;
   margin-bottom: 20px;
@@ -189,88 +301,4 @@ pre {
   padding: 0 10px;
   font-weight: bold;
   color: #3498db;
-}
-
-.promise-result {
-  background-color: #e8f4f8;
-  padding: 10px;
-  border-radius: 4px;
-  margin-bottom: 20px;
-  text-align: center;
-  border-left: 4px solid #3498db;
-}
-
-/* New styles for the toggle and legacy example */
-.toggle-section {
-  text-align: center;
-  margin-bottom: 20px;
-}
-
-.toggle-button {
-  background-color: #6c757d;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.toggle-button:hover {
-  background-color: #5a6268;
-}
-
-.legacy-formik-example {
-  padding: 20px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  background-color: #f9f9f9;
-}
-
-.legacy-formik-example h2 {
-  color: #5d6d7e;
-  border-bottom: 1px solid #ddd;
-  padding-bottom: 10px;
-}
-
-.legacy-formik-example div {
-  margin-bottom: 15px;
-}
-
-.legacy-formik-example label {
-  display: block;
-  margin-bottom: 5px;
-}
-
-.legacy-formik-example input[type="email"],
-.legacy-formik-example input[type="password"] {
-  width: 100%;
-  padding: 8px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-}
-
-.legacy-formik-example button {
-  background-color: #28a745;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.legacy-formik-example button:hover {
-  background-color: #218838;
-}
-
-.legacy-formik-example ul {
-  margin-top: 10px;
-  padding-left: 20px;
-}
-
-.legacy-formik-example code {
-  background-color: #f0f0f0;
-  padding: 2px 4px;
-  border-radius: 3px;
-  font-family: monospace;
 } 

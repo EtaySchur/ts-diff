@@ -1,20 +1,20 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
-import LegacyFormikExample from './components/LegacyFormikExample';
+import FormikComplexForm from './components/FormikComplexForm';
 import QueryExample from './components/QueryExample';
 import SafeQueryExample from './components/SafeQueryExample';
-import RemovedApisExample from './components/RemovedApisExample';
+import QueryAdvancedExample from './components/QueryAdvancedExample';
 import './styles.css';
 
 ReactDOM.render(
   <div>
-    <RemovedApisExample />
+    <QueryAdvancedExample />
     <hr style={{ margin: '30px 0' }} />
     <SafeQueryExample />
     <hr style={{ margin: '30px 0' }} />
     <QueryExample />
     <hr style={{ margin: '30px 0' }} />
-    <LegacyFormikExample />
+    <FormikComplexForm />
   </div>,
   document.getElementById('root')
 ); 

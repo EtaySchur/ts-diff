@@ -1,83 +1,220 @@
-import { QueryClient } from 'react-query';
+import { QueryStatus } from 'react-query';
+import { QueryClient, QueryKey } from 'react-query';
 
-/**
- * Safely manages a fetch request that might need to be cancelled
- * Alternative to using the deprecated CancelledError and CancelOptions
- */
-export const createSafeFetcher = <T>(fetchFn: () => Promise<T>) => {
+// Action type definitions
+export type ContinueAction = {
+  type: 'continue';
+};
+
+export type ErrorAction<TError> = {
+  type: 'error';
+  error: TError;
+};
+
+export type FailedAction = {
+  type: 'failed';
+};
+
+export type FetchAction = {
+  type: 'fetch';
+};
+
+export type InvalidateAction = {
+  type: 'invalidate';
+};
+
+export type PauseAction = {
+  type: 'pause';
+};
+
+export type SetStateAction<TData, TError> = {
+  type: 'setState';
+  state: {
+    data?: TData;
+    error?: TError;
+    status?: QueryStatus;
+  };
+};
+
+export type SuccessAction<TData> = {
+  type: 'success';
+  data: TData;
+};
+
+// Action type
+export type Action<TData, TError> = 
+  | ContinueAction 
+  | ErrorAction<TError> 
+  | FailedAction 
+  | FetchAction 
+  | InvalidateAction 
+  | PauseAction 
+  | SetStateAction<TData, TError> 
+  | SuccessAction<TData>;
+
+// CancelledError implementation
+export class CancelledError extends Error {
+  constructor(message = 'The query was cancelled') {
+    super(message);
+    this.name = 'CancelledError';
+    Object.setPrototypeOf(this, CancelledError.prototype);
+  }
+
+  public isCancelledError = true;
+}
+
+// Cancel options interface
+export interface CancelOptions {
+  revert?: boolean;
+  silent?: boolean;
+}
+
+// Query key helper
+export type EnsuredQueryKey<T> = T extends string ? [T] : Exclude<T, string>;
+
+// Alternative to EnsuredQueryKey that's more explicit
+export type SafeQueryKey<T> = [string, T?] | readonly [string, T?];
+
+// Data transformation helper
+export type DataUpdateFunction<TInput, TOutput> = (input: TInput) => TOutput;
+
+// Network error detector
+export function isNetworkError(error: Error): boolean {
+  return (
+    error.message.includes('Network') ||
+    error.message.includes('network') ||
+    error.message.includes('fetch') ||
+    error.message.includes('Failed to fetch')
+  );
+}
+
+// Safe fetcher that can be cancelled
+export function createSafeFetcher<T>(
+  fetchFn: () => Promise<T>
+): { execute: () => Promise<T>; cancel: () => void } {
   let isCancelled = false;
-  
+  const controller = new AbortController();
+
   const execute = async (): Promise<T> => {
     try {
       const result = await fetchFn();
-      
-      // If the request was cancelled while in flight, 
-      // we throw a generic error instead of CancelledError
       if (isCancelled) {
-        throw new Error('Request was cancelled');
+        throw new Error('Operation was cancelled');
       }
-      
       return result;
     } catch (error) {
-      // For non-cancelled errors, we just rethrow
-      if (!isCancelled) {
-        throw error;
+      if (isCancelled) {
+        throw new Error('Operation was cancelled');
       }
-      
-      // This will only happen if the request was cancelled AND threw an error
-      throw new Error('Request was cancelled');
+      throw error;
     }
   };
-  
+
   const cancel = () => {
     isCancelled = true;
+    controller.abort();
   };
-  
+
   return { execute, cancel };
-};
+}
 
-/**
- * Safe type for query keys that ensures string keys are wrapped in an array
- * Alternative to EnsuredQueryKey type
- */
-export type SafeQueryKey<T> = T extends string ? readonly [T, ...unknown[]] : readonly unknown[];
-
-/**
- * Utility function to invalidate multiple queries by their keys
- * Alternative to direct usage of queryClient.invalidateQueries with complex logic
- */
-export const invalidateQueries = (
-  queryClient: QueryClient, 
-  queryKeys: string[]
-): Promise<void> => {
-  return Promise.all(
-    queryKeys.map(key => queryClient.invalidateQueries(key))
-  ).then(() => {
-    return;
-  });
-};
-
-/**
- * Safely update data in the query cache
- * Alternative to using deprecated DataUpdateFunction
- */
-export const updateQueryData = <T>(
+// Safely update query data
+export function updateQueryData<T>(
   queryClient: QueryClient,
-  queryKey: string | readonly unknown[],
+  queryKey: QueryKey,
   updater: (oldData: T | undefined) => T
-): void => {
+): void {
   queryClient.setQueryData(queryKey, (oldData: T | undefined) => {
     return updater(oldData);
   });
-};
+}
 
-/**
- * Error boundary for query errors
- * Alternative to relying on specific error types that might be deprecated
- */
-export const isNetworkError = (error: unknown): boolean => {
-  return error instanceof Error && 
-    (error.message.includes('Network') || 
-     error.message.includes('network') ||
-     error.message.includes('Failed to fetch'));
-}; 
+// State interfaces
+export interface DehydratedState {
+  queries: DehydratedQuery[];
+  mutations: DehydratedMutation[];
+}
+
+export interface DehydratedQuery {
+  queryHash: string;
+  queryKey: unknown;
+  state: {
+    data: unknown;
+    error: null | Error;
+    status: QueryStatus;
+    updatedAt: number;
+  };
+}
+
+export interface DehydratedMutation {
+  mutationKey: unknown;
+  state: {
+    data: unknown;
+    error: null | Error;
+    status: string;
+  };
+}
+
+// Helper interfaces
+interface QueryObject {
+  queryHash: string;
+  queryKey: unknown;
+  state: {
+    data: unknown;
+    error: null | Error;
+    status: QueryStatus;
+    updatedAt: number;
+  };
+}
+
+interface MutationObject {
+  options: {
+    mutationKey: unknown;
+  };
+  state: {
+    data: unknown;
+    error: null | Error;
+    status: string;
+  };
+}
+
+// Dehydrate options
+export interface DehydrateOptions {
+  shouldDehydrateQuery?: (query: { queryHash: string }) => boolean;
+  shouldDehydrateMutation?: (mutation: { options?: { mutationKey: unknown } }) => boolean;
+}
+
+// Dehydration utility
+export function dehydrate(
+  queryClient: any, 
+  options: DehydrateOptions = {}
+): DehydratedState {
+  const { 
+    shouldDehydrateQuery = () => true,
+    shouldDehydrateMutation = () => true 
+  } = options;
+
+  const queries = queryClient.getQueryCache().findAll();
+  const mutations = queryClient.getMutationCache().getAll();
+
+  return {
+    queries: queries
+      .filter((query: QueryObject) => shouldDehydrateQuery(query))
+      .map((query: QueryObject) => ({
+        queryHash: query.queryHash,
+        queryKey: query.queryKey,
+        state: query.state
+      })),
+    mutations: mutations
+      .filter((mutation: MutationObject) => shouldDehydrateMutation({ options: mutation.options }))
+      .map((mutation: MutationObject) => ({
+        mutationKey: mutation.options.mutationKey,
+        state: mutation.state
+      }))
+  };
+}
+
+// Array utility
+export function difference<T>(array1: T[], array2: T[]): T[] {
+  return array1.filter(x => !array2.includes(x));
+} 
