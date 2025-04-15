@@ -1,13 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { QueryClient, QueryClientProvider, useQuery, QueryKey, CancelledError } from 'react-query';
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQuery,
+  QueryKey,
+  CancelledError,
+  CancelOptions,
+  dehydrate, DehydrateOptions, DehydratedState
+} from 'react-query';
 import { 
   Action,
-  CancelOptions,
   EnsuredQueryKey, 
   DataUpdateFunction,
-  dehydrate,
-  DehydrateOptions,
-  DehydratedState,
   difference
 } from '../utils/queryUtils';
 

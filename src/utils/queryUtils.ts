@@ -173,36 +173,6 @@ export interface DehydrateOptions {
   shouldDehydrateMutation?: (mutation: { options?: { mutationKey: unknown } }) => boolean;
 }
 
-// Dehydration utility
-export function dehydrate(
-  queryClient: any, 
-  options: DehydrateOptions = {}
-): DehydratedState {
-  const { 
-    shouldDehydrateQuery = () => true,
-    shouldDehydrateMutation = () => true 
-  } = options;
-
-  const queries = queryClient.getQueryCache().findAll();
-  const mutations = queryClient.getMutationCache().getAll();
-
-  return {
-    queries: queries
-      .filter((query: QueryObject) => shouldDehydrateQuery(query))
-      .map((query: QueryObject) => ({
-        queryHash: query.queryHash,
-        queryKey: query.queryKey,
-        state: query.state
-      })),
-    mutations: mutations
-      .filter((mutation: MutationObject) => shouldDehydrateMutation({ options: mutation.options }))
-      .map((mutation: MutationObject) => ({
-        mutationKey: mutation.options.mutationKey,
-        state: mutation.state
-      }))
-  };
-}
-
 // Array utility
 export function difference<T>(array1: T[], array2: T[]): T[] {
   return array1.filter(x => !array2.includes(x));
