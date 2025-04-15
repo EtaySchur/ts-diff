@@ -52,17 +52,6 @@ export type Action<TData, TError> =
   | SetStateAction<TData, TError> 
   | SuccessAction<TData>;
 
-// CancelledError implementation
-export class CancelledError extends Error {
-  constructor(message = 'The query was cancelled') {
-    super(message);
-    this.name = 'CancelledError';
-    Object.setPrototypeOf(this, CancelledError.prototype);
-  }
-
-  public isCancelledError = true;
-}
-
 // Cancel options interface
 export interface CancelOptions {
   revert?: boolean;

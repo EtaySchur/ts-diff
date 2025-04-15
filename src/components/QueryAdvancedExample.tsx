@@ -1,9 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { QueryClient, QueryClientProvider, useQuery, QueryKey } from 'react-query';
+import { QueryClient, QueryClientProvider, useQuery, QueryKey, CancelledError } from 'react-query';
 import { 
-  Action, 
-  CancelledError, 
-  CancelOptions, 
+  Action,
+  CancelOptions,
   EnsuredQueryKey, 
   DataUpdateFunction,
   dehydrate,
@@ -63,9 +62,9 @@ const QueryAdvancedDemo: React.FC = () => {
       
       return await response.json();
     } catch (error) {
-      // Check if this is an AbortError and convert to our CancelledError
+      // Check if this is an AbortError and convert to CancelledError
       if (error instanceof Error && error.name === 'AbortError') {
-        throw new CancelledError('User fetch was cancelled');
+        throw new CancelledError();
       }
       throw error;
     }
