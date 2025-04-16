@@ -7,6 +7,9 @@ import SafeQueryExampleWrapper from './components/SafeQueryExampleWrapper';
 import QueryAdvancedExampleWrapper from './components/QueryAdvancedExampleWrapper';
 import Home from './components/Home';
 import ParameterExample from './components/ParameterExample';
+import ActionExample from './components/ActionExample';
+import ChildrenExample from './components/ChildrenExample';
+import StaticContextExample from './components/StaticContextExample';
 import './styles.css';
 
 const Navigation = () => (
@@ -18,6 +21,9 @@ const Navigation = () => (
       <li><Link to="/query">Query Example</Link></li>
       <li><Link to="/formik">Formik Form</Link></li>
       <li><Link to="/protected">Protected Route</Link></li>
+      <li><Link to="/action">Action Example</Link></li>
+      <li><Link to="/children">Children Function</Link></li>
+      <li><Link to="/static-context">Static Context</Link></li>
     </ul>
   </div>
 );
@@ -73,6 +79,9 @@ const App = () => {
           <Route path="/query" component={QueryExampleWrapper} />
           <Route path="/formik" component={FormikComplexFormWrapper} />
           <Route path="/params/:name" component={ParameterExample} />
+          <Route path="/action" component={ActionExample} />
+          <Route path="/children" component={ChildrenExample} />
+          <Route path="/static-context" component={StaticContextExample} />
           
           {/* Protected route example (v4.3.1 feature) */}
           <ProtectedRoute 

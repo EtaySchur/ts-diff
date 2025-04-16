@@ -431,4 +431,88 @@ pre {
 
 .no-match a:hover {
   background-color: #2980b9;
+}
+
+/* Action Example and Children Example Styles */
+.action-example, 
+.children-example {
+  background-color: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.action-example h2,
+.children-example h2 {
+  color: #2c3e50;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+}
+
+.example-links {
+  margin: 20px 0;
+  padding: 10px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  text-align: center;
+}
+
+.example-content {
+  margin: 20px 0;
+  padding: 20px;
+  border: 1px solid #eee;
+  border-radius: 8px;
+}
+
+.active-route {
+  background-color: #d4edda;
+  color: #155724;
+  padding: 15px;
+  border-radius: 4px;
+  border-left: 4px solid #28a745;
+  transition: all 0.3s ease;
+}
+
+.inactive-route {
+  background-color: #f8f9fa;
+  color: #818182;
+  padding: 15px;
+  border-radius: 4px;
+  border-left: 4px solid #ddd;
+  transition: all 0.3s ease;
+}
+
+/* Static Context Example Styles */
+.static-context-example {
+  background-color: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.static-context-example h2 {
+  color: #2c3e50;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+}
+
+.example-code {
+  margin: 20px 0;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  padding: 15px;
+  overflow-x: auto;
+}
+
+.example-code pre {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #333;
 } 
