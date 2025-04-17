@@ -27,6 +27,10 @@ export interface SymbolResolution {
   resolvedFrom: string;
   actualDefinitionPath: string;
   isFromTypeDefinition: boolean;
+  importPosition?: {
+    line: number;
+    character: number;
+  };
 }
 
 export function findPackageUsage(projectRoot: string, packageName: string): PackageUsage[] {
@@ -240,11 +244,20 @@ export function findPackageUsage(projectRoot: string, packageName: string): Pack
         }
       }
       
+      // Get the position of the import
+      const pos = node.getStart();
+      const sourceFile = node.getSourceFile();
+      const { line, character } = sourceFile.getLineAndCharacterOfPosition(pos);
+      
       resolutions.push({
         symbolName,
         resolvedFrom: importPackageName,
         actualDefinitionPath: declarationPath,
-        isFromTypeDefinition
+        isFromTypeDefinition,
+        importPosition: {
+          line: line + 1, // Make line numbers 1-based
+          character: character + 1
+        }
       });
     } catch (error) {
       console.error(`Error resolving symbol ${symbolName}:`, error);
