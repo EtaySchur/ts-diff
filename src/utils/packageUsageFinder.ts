@@ -2,6 +2,15 @@ import * as ts from 'typescript';
 import * as path from 'path';
 import * as fs from 'fs';
 
+export interface SymbolUsage {
+  symbolName: string;
+  locations: Array<{
+    line: number;
+    character: number;
+    context: string; // Surrounding code snippet for context
+  }>;
+}
+
 export interface PackageUsage {
   fileName: string;
   importStatement: string;
@@ -10,6 +19,7 @@ export interface PackageUsage {
   importedSymbols: string[];
   isDynamicImport?: boolean;
   symbolResolutions?: SymbolResolution[];
+  symbolUsages?: SymbolUsage[]; // New property to track symbol usages
 }
 
 export interface SymbolResolution {
@@ -46,6 +56,9 @@ export function findPackageUsage(projectRoot: string, packageName: string): Pack
   const typeChecker = program.getTypeChecker();
   const results: PackageUsage[] = [];
   
+  // Map to store imported symbols by file for tracking usages
+  const importedSymbolsByFile = new Map<string, Map<string, ts.Identifier>>();
+  
   // Define the visit function outside the loop to fix strict mode error
   function visitNode(node: ts.Node, sourceFile: ts.SourceFile): void {
     // Check for static imports
@@ -62,11 +75,20 @@ export function findPackageUsage(projectRoot: string, packageName: string): Pack
           const importedSymbols: string[] = [];
           const symbolResolutions: SymbolResolution[] = [];
           
+          // Create a new Map for this file if it doesn't exist
+          if (!importedSymbolsByFile.has(sourceFile.fileName)) {
+            importedSymbolsByFile.set(sourceFile.fileName, new Map<string, ts.Identifier>());
+          }
+          const fileSymbolsMap = importedSymbolsByFile.get(sourceFile.fileName)!;
+          
           if (node.importClause) {
             // Default import
             if (node.importClause.name) {
               const symbolName = node.importClause.name.text;
               importedSymbols.push(symbolName);
+              
+              // Store the import node for later usage tracking
+              fileSymbolsMap.set(symbolName, node.importClause.name);
               
               // Try to resolve the symbol definition
               tryResolveSymbol(node.importClause.name, symbolName, symbolResolutions, packageName);
@@ -80,6 +102,9 @@ export function findPackageUsage(projectRoot: string, packageName: string): Pack
                   const symbolName = element.name.text;
                   importedSymbols.push(symbolName);
                   
+                  // Store the import node for later usage tracking
+                  fileSymbolsMap.set(symbolName, element.name);
+                  
                   // Try to resolve the symbol definition
                   tryResolveSymbol(element.name, symbolName, symbolResolutions, packageName);
                 });
@@ -87,6 +112,9 @@ export function findPackageUsage(projectRoot: string, packageName: string): Pack
                 // Namespace import (e.g., import * as React from 'react')
                 const symbolName = `* as ${namedBindings.name.text}`;
                 importedSymbols.push(symbolName);
+                
+                // Store the import node for later usage tracking
+                fileSymbolsMap.set(namedBindings.name.text, namedBindings.name);
                 
                 // Try to resolve the symbol definition
                 tryResolveSymbol(namedBindings.name, namedBindings.name.text, symbolResolutions, packageName);
@@ -104,7 +132,8 @@ export function findPackageUsage(projectRoot: string, packageName: string): Pack
             character: character + 1,
             importedSymbols,
             isDynamicImport: false,
-            symbolResolutions
+            symbolResolutions,
+            symbolUsages: [] // Will be populated later
           });
         } catch (error) {
           console.error(`Error processing import in ${sourceFile.fileName}:`, error);
@@ -130,7 +159,8 @@ export function findPackageUsage(projectRoot: string, packageName: string): Pack
           line: line + 1,
           character: character + 1,
           importedSymbols: ['(dynamic import)'],
-          isDynamicImport: true
+          isDynamicImport: true,
+          symbolUsages: [] // Empty for dynamic imports
         });
       } catch (error) {
         console.error(`Error processing dynamic import in ${sourceFile.fileName}:`, error);
@@ -156,7 +186,8 @@ export function findPackageUsage(projectRoot: string, packageName: string): Pack
           line: line + 1,
           character: character + 1,
           importedSymbols: ['(require)'],
-          isDynamicImport: true
+          isDynamicImport: true,
+          symbolUsages: [] // Empty for require statements
         });
       } catch (error) {
         console.error(`Error processing require in ${sourceFile.fileName}:`, error);
@@ -220,7 +251,7 @@ export function findPackageUsage(projectRoot: string, packageName: string): Pack
     }
   }
   
-  // Process all source files
+  // Process all source files to find imports
   for (const sourceFile of program.getSourceFiles()) {
     // Skip declaration files and node_modules files
     if (sourceFile.isDeclarationFile || sourceFile.fileName.includes('node_modules')) {
@@ -229,6 +260,80 @@ export function findPackageUsage(projectRoot: string, packageName: string): Pack
     
     // Start the recursive visit from the source file
     visitNode(sourceFile, sourceFile);
+  }
+  
+  // Now look for usages of the imported symbols
+  for (const sourceFile of program.getSourceFiles()) {
+    // Skip declaration files and node_modules files
+    if (sourceFile.isDeclarationFile || sourceFile.fileName.includes('node_modules')) {
+      continue;
+    }
+    
+    // Get imported symbols for this file
+    const fileSymbolsMap = importedSymbolsByFile.get(sourceFile.fileName);
+    if (!fileSymbolsMap || fileSymbolsMap.size === 0) {
+      continue; // Skip if no imports from the target package
+    }
+    
+    // Map to store usages for each symbol
+    const usagesBySymbol = new Map<string, SymbolUsage>();
+    
+    // Create a visitor to find all identifiers in the file
+    const visitNodeForUsages = (node: ts.Node) => {
+      // Check for identifier usages
+      if (ts.isIdentifier(node)) {
+        const symbolName = node.text;
+        
+        // Skip if the symbol was not imported from our target package
+        if (!fileSymbolsMap.has(symbolName)) {
+          return;
+        }
+        
+        // Skip import declarations (we're looking for usages, not imports)
+        if (ts.isImportDeclaration(node.parent) || 
+            (node.parent && ts.isImportSpecifier(node.parent)) ||
+            (node.parent && ts.isImportClause(node.parent))) {
+          return;
+        }
+        
+        // Get position info
+        const pos = node.getStart(sourceFile);
+        const { line, character } = sourceFile.getLineAndCharacterOfPosition(pos);
+        
+        // Get context (surrounding code)
+        const lineText = sourceFile.text.split('\n')[line];
+        const context = lineText ? lineText.trim() : '';
+        
+        // Add to usages
+        if (!usagesBySymbol.has(symbolName)) {
+          usagesBySymbol.set(symbolName, {
+            symbolName,
+            locations: []
+          });
+        }
+        
+        const symbolUsage = usagesBySymbol.get(symbolName)!;
+        symbolUsage.locations.push({
+          line: line + 1, // Make line numbers 1-based
+          character: character + 1,
+          context
+        });
+      }
+      
+      // Recursively visit all child nodes
+      ts.forEachChild(node, visitNodeForUsages);
+    };
+    
+    // Start the recursive visit to find usages
+    visitNodeForUsages(sourceFile);
+    
+    // Add usage info to the results
+    for (const result of results) {
+      if (result.fileName === sourceFile.fileName) {
+        // Convert usage map to array for the result
+        result.symbolUsages = Array.from(usagesBySymbol.values());
+      }
+    }
   }
   
   return results;
@@ -249,46 +354,56 @@ export function printPackageUsage(results: PackageUsage[]): void {
   
   console.log(`Found ${results.length} usage(s):\n`);
   
-  results.forEach((usage, index) => {
-    console.log(`[${index + 1}] ${path.relative(process.cwd(), usage.fileName)}:${usage.line}:${usage.character}`);
-    console.log(`    Import: ${usage.importStatement.trim()}`);
-    console.log(`    Symbols: ${usage.importedSymbols.join(', ')}`);
-    if (usage.isDynamicImport) {
-      console.log(`    Type: Dynamic Import`);
-    }
+  results.forEach(result => {
+    console.log(`File: ${result.fileName}`);
+    console.log(`Import: ${result.importStatement}`);
+    console.log(`At: Line ${result.line}, Character ${result.character}`);
+    console.log(`Imported Symbols: ${result.importedSymbols.join(', ')}`);
     
-    // Print resolution information
-    if (usage.symbolResolutions && usage.symbolResolutions.length > 0) {
-      console.log(`    Symbol Resolutions:`);
-      usage.symbolResolutions.forEach(resolution => {
-        console.log(`      - ${resolution.symbolName}`);
-        console.log(`        Imported from: ${resolution.resolvedFrom}`);
-        console.log(`        Actual definition: ${resolution.actualDefinitionPath}`);
-        if (resolution.isFromTypeDefinition) {
-          console.log(`        ⚠️  WARNING: This symbol is actually defined in a type declaration package (@types/${extractPackageNameFromTypeDef(resolution.actualDefinitionPath)})`);
-        }
+    if (result.symbolResolutions && result.symbolResolutions.length > 0) {
+      console.log('Symbol Resolutions:');
+      result.symbolResolutions.forEach(resolution => {
+        console.log(`  - ${resolution.symbolName} (from ${resolution.resolvedFrom})`);
+        console.log(`    Resolved to: ${resolution.actualDefinitionPath}`);
+        console.log(`    Is Type Definition: ${resolution.isFromTypeDefinition}`);
       });
     }
     
-    console.log('---');
+    if (result.symbolUsages && result.symbolUsages.length > 0) {
+      console.log('Symbol Usages:');
+      result.symbolUsages.forEach(usage => {
+        console.log(`  - ${usage.symbolName} - ${usage.locations.length} usages:`);
+        usage.locations.forEach((loc, index) => {
+          console.log(`    ${index + 1}. Line ${loc.line}, Character ${loc.character}`);
+          console.log(`       Context: ${loc.context}`);
+        });
+      });
+    }
+    
+    console.log('---------------------------------------------------\n');
   });
 }
 
-// Function to analyze package usage and save it to a JSON file
+// Function to analyze package usage and save results to a file
 export function analyzeAndSavePackageUsage(
   projectRoot: string,
   packageName: string,
   outputPath?: string
 ): void {
-  const results = findPackageUsage(projectRoot, packageName);
-  printPackageUsage(results);
+  console.log(`Analyzing usage of package "${packageName}" in project at ${projectRoot}...`);
   
-  if (outputPath) {
-    fs.writeFileSync(
-      outputPath, 
-      JSON.stringify(results, null, 2),
-      'utf8'
-    );
-    console.log(`\nResults saved to ${outputPath}`);
+  try {
+    const results = findPackageUsage(projectRoot, packageName);
+    
+    if (outputPath) {
+      // Save to file
+      fs.writeFileSync(outputPath, JSON.stringify(results, null, 2), 'utf8');
+      console.log(`Results saved to ${outputPath}`);
+    } else {
+      // Print to console
+      printPackageUsage(results);
+    }
+  } catch (error) {
+    console.error('Error analyzing package usage:', error);
   }
 } 
