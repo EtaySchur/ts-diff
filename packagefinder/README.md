@@ -10,6 +10,9 @@ A Go tool to find all usages of a specific NPM/JavaScript package in a project. 
   - Dynamic imports (`import('package')`)
   - SystemJS imports (`System.import('package')`)
   - Global variables (`window.package`)
+  - AMD define (`define(['package'], function(pkg) {})`)
+  - UMD factory pattern (Universal Module Definition)
+  - ESM import maps (`import.meta.resolve('package')`)
 - Tracks symbol usages throughout the codebase
 - JSON output for programmatic consumption
 - Human-readable console output
@@ -58,6 +61,46 @@ Found 3 usage(s):
        2. Line 10, Character 7
           Context: const element = React.useState(null);
 ----------------------------------------------------------------------
+```
+
+## Advanced Import Styles
+
+The tool detects advanced module patterns including:
+
+### AMD Define
+
+```js
+define(['jquery', 'lodash', 'react'], function($, _, React) {
+  var element = React.createElement('div', null, 'Hello');
+  // Rest of the code
+});
+```
+
+### UMD Factory Pattern
+
+```js
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    define(['react'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    module.exports = factory(require('react'));
+  } else {
+    root.MyModule = factory(root.React);
+  }
+}(this, function(React) {
+  // Module code
+}));
+```
+
+### ESM Import Maps
+
+```js
+// Modern browsers
+async function loadComponent() {
+  const reactUrl = await import.meta.resolve('react');
+  const module = await import(reactUrl);
+  return module.default;
+}
 ```
 
 ## Requirements
