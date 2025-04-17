@@ -71,3 +71,48 @@ The form validates the following fields:
 - Webpack
 - Babel
 - Bootstrap (CSS only) 
+
+## Utility Tools
+
+### Package Usage Finder
+
+The project includes a utility tool to find and analyze how npm packages are being used in the codebase.
+
+#### Usage
+
+There are two ways to use the package finder tool:
+
+1. Find package usage in the current project (standard detection):
+
+```bash
+npm run find-package-usage -- <package-name> [output-file]
+```
+
+2. Find package usage in any directory with enhanced detection:
+
+```bash
+npm run find-package -- <package-name> [path-to-search] [output-file]
+```
+
+##### Examples:
+
+Find React usage in the current project:
+```bash
+npm run find-package -- react
+```
+
+Find Formik usage in a specific directory and save results to a file:
+```bash
+npm run find-package -- formik ./src output.json
+```
+
+The enhanced tool will:
+- Scan all JavaScript/TypeScript files in the specified directory
+- Find all imports of the specified package
+- Detect various import styles including:
+  - ES6 imports (`import React from 'react'`)
+  - CommonJS requires (`const React = require('react')`)
+  - Dynamic imports (`import('react')`)
+  - AMD module format (`define(['react'], function(React) { ... })`)
+- Analyze how the imported components/functions are used
+- Output the results to the console or to a specified JSON file 

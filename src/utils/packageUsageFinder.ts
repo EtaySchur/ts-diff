@@ -17,7 +17,7 @@ export interface PackageUsage {
   line: number;
   character: number;
   importedSymbols: string[];
-  importStyle?: 'ES6Import' | 'CommonJS' | 'RequireJS' | 'DynamicImport' | 'ESModuleInterop' | 'SystemJS' | 'UMD' | 'GlobalVariable' | 'ImportMaps' | 'Unknown'; // Extended import style tracking
+  importStyle?: 'ES6Import' | 'CommonJS' | 'RequireJS' | 'DynamicImport' | 'ESModuleInterop' | 'SystemJS' | 'UMD' | 'GlobalVariable' | 'ImportMaps' | 'AMD' | 'Unknown'; // Extended import style tracking
   isDynamicImport?: boolean;
   symbolResolutions?: SymbolResolution[];
   symbolUsages?: SymbolUsage[]; // New property to track symbol usages
@@ -34,7 +34,7 @@ export interface SymbolResolution {
   };
 }
 
-export function findPackageUsage(projectRoot: string, packageName: string): PackageUsage[] {
+export function findPackageUsage(projectRoot: string, packageName: string, enhancedDetection: boolean = false): PackageUsage[] {
   // Create options for parsing JavaScript files as well as TypeScript
   let compilerOptions: ts.CompilerOptions = {
     allowJs: true,
@@ -318,58 +318,94 @@ export function findPackageUsage(projectRoot: string, packageName: string): Pack
       }
     }
     
-    // Check for AMD require style: require(['package-name'], function(pkg) {...})
-    if (ts.isCallExpression(node) && 
+    // Check for AMD define statements
+    if (enhancedDetection && 
+        ts.isCallExpression(node) && 
         ts.isIdentifier(node.expression) &&
-        node.expression.text === 'require' &&
-        node.arguments.length >= 2 &&
-        ts.isArrayLiteralExpression(node.arguments[0]) &&
-        ts.isFunctionExpression(node.arguments[1])) {
+        node.expression.text === 'define') {
       
-      const moduleArray = node.arguments[0] as ts.ArrayLiteralExpression;
-      const callback = node.arguments[1] as ts.FunctionExpression;
+      // Check for define(['module1', 'module2', ...], function(...) { ... })
+      if (node.arguments.length >= 2 && 
+          ts.isArrayLiteralExpression(node.arguments[0])) {
+        
+        const dependencies = node.arguments[0] as ts.ArrayLiteralExpression;
+        let packageIndex = -1;
+        let hasPackage = false;
+        
+        // Find our package in the dependencies array
+        for (let i = 0; i < dependencies.elements.length; i++) {
+          const element = dependencies.elements[i];
+          if (ts.isStringLiteral(element) && element.text === packageName) {
+            hasPackage = true;
+            packageIndex = i;
+            break;
+          }
+        }
+        
+        if (hasPackage) {
+          try {
+            // Get position of define statement
+            const pos = node.getStart(sourceFile);
+            const { line, character } = sourceFile.getLineAndCharacterOfPosition(pos);
+            
+            // Get the function parameter that corresponds to our package
+            let paramName = '(anonymous)';
+            if (packageIndex !== -1 && 
+                ts.isFunctionExpression(node.arguments[1]) &&
+                packageIndex < node.arguments[1].parameters.length) {
+              paramName = node.arguments[1].parameters[packageIndex].name.getText(sourceFile);
+            }
+            
+            results.push({
+              fileName: sourceFile.fileName,
+              importStatement: `define([..., '${packageName}', ...], function(..., ${paramName}, ...) { ... })`,
+              line: line + 1,
+              character: character + 1,
+              importedSymbols: [paramName],
+              importStyle: 'AMD',
+              isDynamicImport: false,
+              symbolUsages: [] // Will populate symbol usages later
+            });
+          } catch (error) {
+            console.error(`Error processing AMD define in ${sourceFile.fileName}:`, error);
+          }
+        }
+      }
       
-      // Check if our package is in the array
-      const moduleIndex = moduleArray.elements.findIndex(e => 
-        ts.isStringLiteral(e) && e.text === packageName
-      );
-      
-      if (moduleIndex >= 0) {
-        try {
-          // Get position of require statement
-          const pos = node.getStart(sourceFile);
-          const { line, character } = sourceFile.getLineAndCharacterOfPosition(pos);
+      // Check for require(['module1', 'module2', ...], function(...) { ... })
+      if (node.arguments.length >= 2 && 
+          ts.isArrayLiteralExpression(node.arguments[0])) {
           
-          const importedSymbols: string[] = ['(AMD require)'];
-          
-          // Get the parameter name if available
-          if (moduleIndex < callback.parameters.length) {
-            const param = callback.parameters[moduleIndex];
-            if (ts.isIdentifier(param.name)) {
-              const paramName = param.name.text;
-              importedSymbols.push(paramName);
+        const dependencies = node.arguments[0] as ts.ArrayLiteralExpression;
+        dependencies.elements.forEach((element, index) => {
+          if (ts.isStringLiteral(element) && element.text === packageName) {
+            try {
+              // Get position of require statement
+              const pos = node.getStart(sourceFile);
+              const { line, character } = sourceFile.getLineAndCharacterOfPosition(pos);
               
-              // Add to tracking map
-              if (!importedSymbolsByFile.has(sourceFile.fileName)) {
-                importedSymbolsByFile.set(sourceFile.fileName, new Map<string, ts.Identifier>());
+              // Get the function parameter that corresponds to our package
+              let paramName = '(anonymous)';
+              if (ts.isFunctionExpression(node.arguments[1]) &&
+                  index < node.arguments[1].parameters.length) {
+                paramName = node.arguments[1].parameters[index].name.getText(sourceFile);
               }
-              importedSymbolsByFile.get(sourceFile.fileName)!.set(paramName, param.name);
+              
+              results.push({
+                fileName: sourceFile.fileName,
+                importStatement: `require([..., '${packageName}', ...], function(..., ${paramName}, ...) { ... })`,
+                line: line + 1,
+                character: character + 1,
+                importedSymbols: [paramName],
+                importStyle: 'AMD',
+                isDynamicImport: false,
+                symbolUsages: [] // Will populate symbol usages later
+              });
+            } catch (error) {
+              console.error(`Error processing AMD require in ${sourceFile.fileName}:`, error);
             }
           }
-          
-          results.push({
-            fileName: sourceFile.fileName,
-            importStatement: node.getText(sourceFile),
-            line: line + 1,
-            character: character + 1,
-            importedSymbols,
-            importStyle: 'RequireJS',
-            isDynamicImport: true,
-            symbolUsages: [] // Will be populated later
-          });
-        } catch (error) {
-          console.error(`Error processing AMD require in ${sourceFile.fileName}:`, error);
-        }
+        });
       }
     }
     
@@ -881,12 +917,13 @@ export function printPackageUsage(results: PackageUsage[]): void {
 export function analyzeAndSavePackageUsage(
   projectRoot: string,
   packageName: string,
-  outputPath?: string
+  outputPath?: string,
+  enhancedDetection: boolean = false
 ): void {
   console.log(`Analyzing usage of package "${packageName}" in project at ${projectRoot}...`);
   
   try {
-    const results = findPackageUsage(projectRoot, packageName);
+    const results = findPackageUsage(projectRoot, packageName, enhancedDetection);
     
     if (outputPath) {
       // Save to file
