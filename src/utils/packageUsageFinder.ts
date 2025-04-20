@@ -34,7 +34,7 @@ export interface SymbolResolution {
   };
 }
 
-export function findPackageUsage(projectRoot: string, packageName: string, enhancedDetection: boolean = false): PackageUsage[] {
+export function findPackageUsage(projectRoot: string, packageName: string): PackageUsage[] {
   // Create options for parsing JavaScript files as well as TypeScript
   let compilerOptions: ts.CompilerOptions = {
     allowJs: true,
@@ -227,7 +227,7 @@ export function findPackageUsage(projectRoot: string, packageName: string, enhan
         const { line, character } = sourceFile.getLineAndCharacterOfPosition(pos);
         
         // Track which symbols are being used from the required module
-        const importedSymbols: string[] = ['(require)'];
+        const importedSymbols: string[] = [];
         let importStyle: 'CommonJS' | 'RequireJS' | 'Unknown' = 'CommonJS';
         
         // Check the parent node to see how require is being used
@@ -254,53 +254,25 @@ export function findPackageUsage(projectRoot: string, packageName: string, enhan
                 }
               }
             });
-          } 
-          // For regular variable: const x = require('pkg')
-          else if (ts.isIdentifier(parent.name)) {
+          } else {
+            // For simple assignment: const pkg = require('pkg')
             importedSymbols.push(varName);
             
-            // Add to tracking map
-            if (!importedSymbolsByFile.has(sourceFile.fileName)) {
-              importedSymbolsByFile.set(sourceFile.fileName, new Map<string, ts.Identifier>());
-            }
-            importedSymbolsByFile.get(sourceFile.fileName)!.set(varName, parent.name);
-          }
-        }
-        // For RequireJS style: define(['pkg'], function(pkg) {...})
-        else if (parent && 
-                 ts.isArrayLiteralExpression(parent) && 
-                 parent.parent && 
-                 ts.isCallExpression(parent.parent) && 
-                 ts.isIdentifier(parent.parent.expression) && 
-                 parent.parent.expression.text === 'define') {
-          importStyle = 'RequireJS';
-          
-          // Try to find the callback function to extract parameter names
-          const defineCall = parent.parent;
-          if (defineCall.arguments.length >= 2 && ts.isFunctionExpression(defineCall.arguments[1])) {
-            const callback = defineCall.arguments[1] as ts.FunctionExpression;
-            const params = callback.parameters;
-            
-            // Find the parameter index corresponding to this module
-            const moduleElements = (parent as ts.ArrayLiteralExpression).elements;
-            const moduleIndex = moduleElements.findIndex(e => 
-              ts.isStringLiteral(e) && e.text === packageName
-            );
-            
-            if (moduleIndex >= 0 && moduleIndex < params.length) {
-              const param = params[moduleIndex];
-              if (ts.isIdentifier(param.name)) {
-                const paramName = param.name.text;
-                importedSymbols.push(paramName);
-                
-                // Add to tracking map
-                if (!importedSymbolsByFile.has(sourceFile.fileName)) {
-                  importedSymbolsByFile.set(sourceFile.fileName, new Map<string, ts.Identifier>());
-                }
-                importedSymbolsByFile.get(sourceFile.fileName)!.set(paramName, param.name);
+            // Add to tracking map if it's an identifier
+            if (ts.isIdentifier(parent.name)) {
+              if (!importedSymbolsByFile.has(sourceFile.fileName)) {
+                importedSymbolsByFile.set(sourceFile.fileName, new Map<string, ts.Identifier>());
               }
+              importedSymbolsByFile.get(sourceFile.fileName)!.set(varName, parent.name);
             }
           }
+        } else if (parent && ts.isPropertyAccessExpression(parent)) {
+          // For direct property access: require('pkg').something
+          const propName = parent.name.getText(sourceFile);
+          importedSymbols.push(propName);
+        } else {
+          // Add package name as the default imported symbol for standalone requires
+          importedSymbols.push(packageName);
         }
         
         results.push({
@@ -310,17 +282,16 @@ export function findPackageUsage(projectRoot: string, packageName: string, enhan
           character: character + 1,
           importedSymbols,
           importStyle,
-          isDynamicImport: true,
+          isDynamicImport: false,
           symbolUsages: [] // Will be populated later
         });
       } catch (error) {
-        console.error(`Error processing require in ${sourceFile.fileName}:`, error);
+        console.error(`Error processing CommonJS require in ${sourceFile.fileName}:`, error);
       }
     }
     
-    // Check for AMD define statements
-    if (enhancedDetection && 
-        ts.isCallExpression(node) && 
+    // Check for AMD define statements: define(['package-name', ...], function(pkg, ...) { ... })
+    if (ts.isCallExpression(node) && 
         ts.isIdentifier(node.expression) &&
         node.expression.text === 'define') {
       
@@ -349,11 +320,21 @@ export function findPackageUsage(projectRoot: string, packageName: string, enhan
             const { line, character } = sourceFile.getLineAndCharacterOfPosition(pos);
             
             // Get the function parameter that corresponds to our package
-            let paramName = '(anonymous)';
+            let paramName = packageName; // Default to package name instead of anonymous
             if (packageIndex !== -1 && 
                 ts.isFunctionExpression(node.arguments[1]) &&
                 packageIndex < node.arguments[1].parameters.length) {
               paramName = node.arguments[1].parameters[packageIndex].name.getText(sourceFile);
+              
+              // Add to tracking map for usage analysis
+              if (!importedSymbolsByFile.has(sourceFile.fileName)) {
+                importedSymbolsByFile.set(sourceFile.fileName, new Map<string, ts.Identifier>());
+              }
+              
+              const fileSymbolsMap = importedSymbolsByFile.get(sourceFile.fileName)!;
+              if (ts.isIdentifier(node.arguments[1].parameters[packageIndex].name)) {
+                fileSymbolsMap.set(paramName, node.arguments[1].parameters[packageIndex].name as ts.Identifier);
+              }
             }
             
             results.push({
@@ -371,284 +352,140 @@ export function findPackageUsage(projectRoot: string, packageName: string, enhan
           }
         }
       }
-      
-      // Check for require(['module1', 'module2', ...], function(...) { ... })
-      if (node.arguments.length >= 2 && 
-          ts.isArrayLiteralExpression(node.arguments[0])) {
-          
-        const dependencies = node.arguments[0] as ts.ArrayLiteralExpression;
-        dependencies.elements.forEach((element, index) => {
-          if (ts.isStringLiteral(element) && element.text === packageName) {
-            try {
-              // Get position of require statement
-              const pos = node.getStart(sourceFile);
-              const { line, character } = sourceFile.getLineAndCharacterOfPosition(pos);
+    }
+    
+    // Check for AMD require statements: require(['package-name', ...], function(pkg, ...) { ... })
+    if (ts.isCallExpression(node) && 
+        ts.isIdentifier(node.expression) &&
+        node.expression.text === 'require' &&
+        node.arguments.length >= 2 && 
+        ts.isArrayLiteralExpression(node.arguments[0])) {
+        
+      const dependencies = node.arguments[0] as ts.ArrayLiteralExpression;
+      dependencies.elements.forEach((element, index) => {
+        if (ts.isStringLiteral(element) && element.text === packageName) {
+          try {
+            // Get position of require statement
+            const pos = node.getStart(sourceFile);
+            const { line, character } = sourceFile.getLineAndCharacterOfPosition(pos);
+            
+            // Get the function parameter that corresponds to our package
+            let paramName = packageName; // Default to package name instead of anonymous
+            if (ts.isFunctionExpression(node.arguments[1]) &&
+                index < node.arguments[1].parameters.length) {
+              paramName = node.arguments[1].parameters[index].name.getText(sourceFile);
               
-              // Get the function parameter that corresponds to our package
-              let paramName = '(anonymous)';
-              if (ts.isFunctionExpression(node.arguments[1]) &&
-                  index < node.arguments[1].parameters.length) {
-                paramName = node.arguments[1].parameters[index].name.getText(sourceFile);
+              // Add to tracking map for usage analysis
+              if (!importedSymbolsByFile.has(sourceFile.fileName)) {
+                importedSymbolsByFile.set(sourceFile.fileName, new Map<string, ts.Identifier>());
               }
+              
+              const fileSymbolsMap = importedSymbolsByFile.get(sourceFile.fileName)!;
+              if (ts.isIdentifier(node.arguments[1].parameters[index].name)) {
+                fileSymbolsMap.set(paramName, node.arguments[1].parameters[index].name as ts.Identifier);
+              }
+            }
+            
+            results.push({
+              fileName: sourceFile.fileName,
+              importStatement: `require([..., '${packageName}', ...], function(..., ${paramName}, ...) { ... })`,
+              line: line + 1,
+              character: character + 1,
+              importedSymbols: [paramName],
+              importStyle: 'RequireJS',
+              isDynamicImport: false,
+              symbolUsages: [] // Will populate symbol usages later
+            });
+          } catch (error) {
+            console.error(`Error processing AMD require in ${sourceFile.fileName}:`, error);
+          }
+        }
+      });
+    }
+    
+    // Check for UMD factory pattern: (function(root, factory) { ... })(this, function(dependency) { ... })
+    if (ts.isCallExpression(node) && 
+        ts.isParenthesizedExpression(node.expression) && 
+        ts.isFunctionExpression(node.expression.expression) &&
+        node.arguments.length >= 2 &&
+        node.arguments[0].kind === ts.SyntaxKind.ThisKeyword) {
+      
+      // This is potentially a UMD pattern, look for our package in factory dependencies
+      const factory = node.arguments[1];
+      
+      if (ts.isFunctionExpression(factory)) {
+        // Check function body for requires of our package
+        const traverseForRequires = (n: ts.Node) => {
+          if (ts.isCallExpression(n) && 
+              ts.isIdentifier(n.expression) &&
+              n.expression.text === 'require' &&
+              n.arguments.length === 1 &&
+              ts.isStringLiteral(n.arguments[0]) &&
+              n.arguments[0].text === packageName) {
+            
+            try {
+              // Get position of require statement within UMD
+              const pos = n.getStart(sourceFile);
+              const { line, character } = sourceFile.getLineAndCharacterOfPosition(pos);
               
               results.push({
                 fileName: sourceFile.fileName,
-                importStatement: `require([..., '${packageName}', ...], function(..., ${paramName}, ...) { ... })`,
+                importStatement: `UMD factory with require('${packageName}')`,
                 line: line + 1,
                 character: character + 1,
-                importedSymbols: [paramName],
-                importStyle: 'AMD',
+                importedSymbols: ['(UMD require)'],
+                importStyle: 'UMD',
                 isDynamicImport: false,
                 symbolUsages: [] // Will populate symbol usages later
               });
             } catch (error) {
-              console.error(`Error processing AMD require in ${sourceFile.fileName}:`, error);
+              console.error(`Error processing UMD factory in ${sourceFile.fileName}:`, error);
             }
           }
-        });
-      }
-    }
-    
-    // Check for SystemJS imports: System.import('package-name')
-    if (ts.isCallExpression(node) && 
-        ts.isPropertyAccessExpression(node.expression) &&
-        ts.isIdentifier(node.expression.expression) &&
-        node.expression.expression.text === 'System' &&
-        node.expression.name.text === 'import' &&
-        node.arguments.length === 1 &&
-        ts.isStringLiteral(node.arguments[0]) &&
-        node.arguments[0].text === packageName) {
-      
-      try {
-        // Get position of System.import statement
-        const pos = node.getStart(sourceFile);
-        const { line, character } = sourceFile.getLineAndCharacterOfPosition(pos);
+          
+          ts.forEachChild(n, traverseForRequires);
+        };
         
-        results.push({
-          fileName: sourceFile.fileName,
-          importStatement: node.getText(sourceFile),
-          line: line + 1,
-          character: character + 1,
-          importedSymbols: ['(SystemJS import)'],
-          importStyle: 'SystemJS',
-          isDynamicImport: true,
-          symbolUsages: [] // Will be populated later
-        });
-      } catch (error) {
-        console.error(`Error processing SystemJS import in ${sourceFile.fileName}:`, error);
+        traverseForRequires(factory.body);
       }
     }
     
-    // Check for UMD global variable access: window.packageName or global.packageName
+    // Check for global variable usage or direct script inclusion
     if (ts.isPropertyAccessExpression(node) &&
         ts.isIdentifier(node.expression) &&
-        (node.expression.text === 'window' || node.expression.text === 'global') &&
-        ts.isIdentifier(node.name) &&
-        node.name.text === packageName) {
+        node.expression.text === 'window') {
       
-      try {
-        // Get position of global variable access
-        const pos = node.getStart(sourceFile);
-        const { line, character } = sourceFile.getLineAndCharacterOfPosition(pos);
+      // Look for window.PackageName or similar globals
+      // This is a heuristic - assumes the global var name is same as package
+      const packageNameCapitalized = packageName.charAt(0).toUpperCase() + packageName.slice(1);
+      
+      if (ts.isIdentifier(node.name) && 
+          (node.name.text === packageName || 
+           node.name.text === packageNameCapitalized || 
+           node.name.text === packageName.toUpperCase())) {
         
-        results.push({
-          fileName: sourceFile.fileName,
-          importStatement: node.getText(sourceFile),
-          line: line + 1,
-          character: character + 1,
-          importedSymbols: [node.name.text],
-          importStyle: 'GlobalVariable',
-          isDynamicImport: false,
-          symbolUsages: [] // Will be populated later
-        });
-      } catch (error) {
-        console.error(`Error processing global variable access in ${sourceFile.fileName}:`, error);
-      }
-    }
-    
-    // Check for UMD-style factory pattern: (function(root, factory) { ... })(this, function() { ... })
-    if (ts.isCallExpression(node) &&
-        ts.isParenthesizedExpression(node.expression) &&
-        ts.isFunctionExpression(node.expression.expression) &&
-        node.expression.expression.parameters.length >= 2) {
-      
-      // Look for references to the package inside the factory function
-      let hasPackageReference = false;
-      
-      // Check if the factory function body has a require call for our package
-      const factoryFunc = node.expression.expression;
-      factoryFunc.body.statements.forEach(stmt => {
-        if (ts.isVariableStatement(stmt)) {
-          stmt.declarationList.declarations.forEach(decl => {
-            if (decl.initializer && 
-                ts.isCallExpression(decl.initializer) &&
-                ts.isIdentifier(decl.initializer.expression) &&
-                decl.initializer.expression.text === 'require' &&
-                decl.initializer.arguments.length === 1 &&
-                ts.isStringLiteral(decl.initializer.arguments[0]) &&
-                decl.initializer.arguments[0].text === packageName) {
-              hasPackageReference = true;
-            }
-          });
-        }
-      });
-      
-      if (hasPackageReference) {
         try {
-          // Get position of UMD wrapper
+          // Get position of global usage
           const pos = node.getStart(sourceFile);
           const { line, character } = sourceFile.getLineAndCharacterOfPosition(pos);
           
           results.push({
             fileName: sourceFile.fileName,
-            importStatement: "UMD factory pattern",
+            importStatement: `window.${node.name.text}`,
             line: line + 1,
             character: character + 1,
-            importedSymbols: ['(UMD factory)'],
-            importStyle: 'UMD',
+            importedSymbols: [node.name.text],
+            importStyle: 'GlobalVariable',
             isDynamicImport: false,
-            symbolUsages: [] // Will be populated later
+            symbolUsages: [] // Will populate symbol usages later
           });
         } catch (error) {
-          console.error(`Error processing UMD factory in ${sourceFile.fileName}:`, error);
+          console.error(`Error processing global variable in ${sourceFile.fileName}:`, error);
         }
       }
     }
     
-    // Check for SystemJS.config with map configuration
-    if (ts.isCallExpression(node) &&
-        ts.isPropertyAccessExpression(node.expression) &&
-        ts.isIdentifier(node.expression.expression) &&
-        node.expression.expression.text === 'SystemJS' &&
-        node.expression.name.text === 'config' &&
-        node.arguments.length === 1 &&
-        ts.isObjectLiteralExpression(node.arguments[0])) {
-      
-      const configObj = node.arguments[0] as ts.ObjectLiteralExpression;
-      
-      // Look for map property
-      const mapProperty = configObj.properties.find(prop => 
-        ts.isPropertyAssignment(prop) && 
-        prop.name.getText(sourceFile) === 'map'
-      );
-      
-      if (mapProperty && ts.isPropertyAssignment(mapProperty) && 
-          ts.isObjectLiteralExpression(mapProperty.initializer)) {
-        
-        const mapObject = mapProperty.initializer;
-        
-        // Check if our package is in the map
-        for (const prop of mapObject.properties) {
-          if (ts.isPropertyAssignment(prop) && prop.name.getText(sourceFile) === packageName) {
-            try {
-              // Get position of SystemJS.config
-              const pos = node.getStart(sourceFile);
-              const { line, character } = sourceFile.getLineAndCharacterOfPosition(pos);
-              
-              results.push({
-                fileName: sourceFile.fileName,
-                importStatement: `SystemJS.config({ map: { '${packageName}': ... } })`,
-                line: line + 1,
-                character: character + 1,
-                importedSymbols: ['(SystemJS config)'],
-                importStyle: 'SystemJS',
-                isDynamicImport: false,
-                symbolUsages: [] // Will be populated later
-              });
-              break;
-            } catch (error) {
-              console.error(`Error processing SystemJS.config in ${sourceFile.fileName}:`, error);
-            }
-          }
-        }
-      }
-    }
-    
-    // Check for SystemJS.register with dependencies
-    if (ts.isCallExpression(node) &&
-        ts.isPropertyAccessExpression(node.expression) &&
-        ts.isIdentifier(node.expression.expression) &&
-        node.expression.expression.text === 'SystemJS' &&
-        node.expression.name.text === 'register' &&
-        node.arguments.length >= 2 &&
-        ts.isArrayLiteralExpression(node.arguments[1])) {
-        
-      const dependencies = node.arguments[1] as ts.ArrayLiteralExpression;
-      
-      // Check if our package is in the dependencies
-      const packageIndex = dependencies.elements.findIndex(e => 
-        ts.isStringLiteral(e) && e.text === packageName
-      );
-      
-      if (packageIndex >= 0) {
-        try {
-          // Get position of SystemJS.register
-          const pos = node.getStart(sourceFile);
-          const { line, character } = sourceFile.getLineAndCharacterOfPosition(pos);
-          
-          const importedSymbols: string[] = ['(SystemJS register)'];
-          
-          // If there's a factory function, check for the param name
-          if (node.arguments.length >= 3 && 
-              ts.isFunctionExpression(node.arguments[2]) &&
-              packageIndex < node.arguments[2].parameters.length) {
-            
-            const param = node.arguments[2].parameters[packageIndex];
-            if (ts.isIdentifier(param.name)) {
-              importedSymbols.push(param.name.text);
-            }
-          }
-          
-          results.push({
-            fileName: sourceFile.fileName,
-            importStatement: "SystemJS.register([..., '" + packageName + "', ...], function(...) {...})",
-            line: line + 1,
-            character: character + 1,
-            importedSymbols,
-            importStyle: 'SystemJS',
-            isDynamicImport: false,
-            symbolUsages: [] // Will be populated later
-          });
-        } catch (error) {
-          console.error(`Error processing SystemJS.register in ${sourceFile.fileName}:`, error);
-        }
-      }
-    }
-    
-    // Check for ESM with import.meta.resolve (import maps style)
-    if (ts.isCallExpression(node) && 
-        ts.isPropertyAccessExpression(node.expression) &&
-        ts.isPropertyAccessExpression(node.expression.expression) &&
-        ts.isPropertyAccessExpression(node.expression.expression.expression) &&
-        node.expression.expression.expression.getText() === 'import' &&
-        node.expression.expression.name.text === 'meta' &&
-        node.expression.name.text === 'resolve' &&
-        node.arguments.length === 1 &&
-        ts.isStringLiteral(node.arguments[0]) &&
-        node.arguments[0].text === packageName) {
-      
-      try {
-        // Get position of import.meta.resolve statement
-        const pos = node.getStart(sourceFile);
-        const { line, character } = sourceFile.getLineAndCharacterOfPosition(pos);
-        
-        results.push({
-          fileName: sourceFile.fileName,
-          importStatement: node.getText(sourceFile),
-          line: line + 1,
-          character: character + 1,
-          importedSymbols: ['(ImportMaps)'],
-          importStyle: 'ImportMaps',
-          isDynamicImport: true,
-          symbolUsages: [] // Will be populated later
-        });
-      } catch (error) {
-        console.error(`Error processing import.meta.resolve in ${sourceFile.fileName}:`, error);
-      }
-    }
-    
-    // Recursively visit all child nodes
-    ts.forEachChild(node, childNode => visitNode(childNode, sourceFile));
+    ts.forEachChild(node, child => visitNode(child, sourceFile));
   }
   
   // Helper function to try resolving a symbol's actual definition location
@@ -917,21 +754,44 @@ export function printPackageUsage(results: PackageUsage[]): void {
 export function analyzeAndSavePackageUsage(
   projectRoot: string,
   packageName: string,
-  outputPath?: string,
-  enhancedDetection: boolean = false
+  outputPath?: string
 ): void {
   console.log(`Analyzing usage of package "${packageName}" in project at ${projectRoot}...`);
   
   try {
-    const results = findPackageUsage(projectRoot, packageName, enhancedDetection);
+    const results = findPackageUsage(projectRoot, packageName);
+    
+    // Filter out placeholder symbols
+    const placeholders = ['(AMD)', 'AMD', '(anonymous)', '(require)', '(side-effect only)', 
+                          '(dynamic import)', '(UMD require)', '(UMD factory)', '(SystemJS)',
+                          '(SystemJS import)', '(SystemJS config)', '(SystemJS register)',
+                          '(ImportMaps)', '(GlobalVariable)'];
+    
+    // Clean the results by filtering out placeholder symbols
+    const cleanedResults = results.map(result => {
+      // Filter out placeholder symbols from importedSymbols array
+      const filteredSymbols = result.importedSymbols.filter(symbol => 
+        !placeholders.includes(symbol) && !symbol.startsWith('('));
+      
+      // Clean up symbol usages as well
+      let filteredSymbolUsages = result.symbolUsages || [];
+      filteredSymbolUsages = filteredSymbolUsages.filter(usage => 
+        !placeholders.includes(usage.symbolName) && !usage.symbolName.startsWith('('));
+      
+      return {
+        ...result,
+        importedSymbols: filteredSymbols,
+        symbolUsages: filteredSymbolUsages
+      };
+    });
     
     if (outputPath) {
       // Save to file
-      fs.writeFileSync(outputPath, JSON.stringify(results, null, 2), 'utf8');
+      fs.writeFileSync(outputPath, JSON.stringify(cleanedResults, null, 2), 'utf8');
       console.log(`Results saved to ${outputPath}`);
     } else {
       // Print to console
-      printPackageUsage(results);
+      printPackageUsage(cleanedResults);
     }
   } catch (error) {
     console.error('Error analyzing package usage:', error);

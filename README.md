@@ -80,33 +80,25 @@ The project includes a utility tool to find and analyze how npm packages are bei
 
 #### Usage
 
-There are two ways to use the package finder tool:
-
-1. Find package usage in the current project (standard detection):
+To find package usage:
 
 ```bash
-npm run find-package-usage -- <package-name> [output-file]
-```
-
-2. Find package usage in any directory with enhanced detection:
-
-```bash
-npm run find-package -- <package-name> [path-to-search] [output-file]
+npm run find-package-usage -- <package-name> [output-file] [path-to-search]
 ```
 
 ##### Examples:
 
 Find React usage in the current project:
 ```bash
-npm run find-package -- react
+npm run find-package-usage -- react
 ```
 
 Find Formik usage in a specific directory and save results to a file:
 ```bash
-npm run find-package -- formik ./src output.json
+npm run find-package-usage -- formik output.json ./src
 ```
 
-The enhanced tool will:
+The tool will:
 - Scan all JavaScript/TypeScript files in the specified directory
 - Find all imports of the specified package
 - Detect various import styles including:
@@ -114,5 +106,8 @@ The enhanced tool will:
   - CommonJS requires (`const React = require('react')`)
   - Dynamic imports (`import('react')`)
   - AMD module format (`define(['react'], function(React) { ... })`)
+  - RequireJS (`require(['react'], function(React) { ... })`)
+  - UMD patterns
+  - Global variables (`window.React`)
 - Analyze how the imported components/functions are used
 - Output the results to the console or to a specified JSON file 

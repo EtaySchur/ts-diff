@@ -11,8 +11,21 @@ if (args.length === 0) {
 }
 
 const packageName = args[0];
-const outputPath = args[1]; // Optional output path
-const projectPath = args[2]; // Optional project path
+let outputPath = undefined;
+let projectPath = undefined;
+
+// Check if we have more than 1 argument
+if (args.length > 1) {
+  // If the second argument ends with .json, it's likely the output file
+  if (args[1].endsWith('.json')) {
+    outputPath = args[1];
+    projectPath = args.length > 2 ? args[2] : undefined;
+  } else {
+    // Otherwise, assume it's the project path
+    projectPath = args[1];
+    outputPath = args.length > 2 ? args[2] : undefined;
+  }
+}
 
 // Get the project root directory - use provided path or default to project root
 const projectRoot = projectPath 
