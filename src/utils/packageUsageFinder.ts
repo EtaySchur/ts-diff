@@ -111,8 +111,9 @@ export function findPackageUsage(projectRoot: string, packageName: string): Pack
           node.moduleSpecifier.text === packageName) {
         
         try {
-          // Get position of import statement
-          const pos = node.getStart(sourceFile);
+          // Get position of the module specifier string literal instead of the import statement
+          const moduleSpecifier = node.moduleSpecifier;
+          const pos = moduleSpecifier.getStart(sourceFile) + 1; // +1 to skip the opening quote
           const { line, character } = sourceFile.getLineAndCharacterOfPosition(pos);
           
           // Get imported symbols
@@ -194,8 +195,9 @@ export function findPackageUsage(projectRoot: string, packageName: string): Pack
         node.arguments[0].text === packageName) {
       
       try {
-        // Get position of dynamic import
-        const pos = node.getStart(sourceFile);
+        // Get position of the package name string literal instead of the dynamic import
+        const moduleSpecifier = node.arguments[0];
+        const pos = moduleSpecifier.getStart(sourceFile) + 1; // +1 to skip the opening quote
         const { line, character } = sourceFile.getLineAndCharacterOfPosition(pos);
         
         results.push({
@@ -222,8 +224,16 @@ export function findPackageUsage(projectRoot: string, packageName: string): Pack
         node.arguments[0].text === packageName) {
       
       try {
-        // Get position of require statement
-        const pos = node.getStart(sourceFile);
+        // Get position of the package name string literal without the quotes
+        const moduleSpecifier = node.arguments[0];
+        // Get text position for the content (not including quotes)
+        const fullText = sourceFile.text;
+        const start = moduleSpecifier.getStart(sourceFile);
+        
+        // For require('lodash'), we want to skip 'require(' and the opening quote
+        // position should be at 'l' in 'lodash'
+        const contentStart = start + 1;  // +1 to skip the opening quote
+        const pos = contentStart;
         const { line, character } = sourceFile.getLineAndCharacterOfPosition(pos);
         
         // Track which symbols are being used from the required module
@@ -315,8 +325,9 @@ export function findPackageUsage(projectRoot: string, packageName: string): Pack
         
         if (hasPackage) {
           try {
-            // Get position of define statement
-            const pos = node.getStart(sourceFile);
+            // Get position of the package string literal in the dependencies array
+            const element = dependencies.elements[packageIndex];
+            const pos = element.getStart(sourceFile) + 1; // +1 to skip the opening quote
             const { line, character } = sourceFile.getLineAndCharacterOfPosition(pos);
             
             // Get the function parameter that corresponds to our package
@@ -365,8 +376,8 @@ export function findPackageUsage(projectRoot: string, packageName: string): Pack
       dependencies.elements.forEach((element, index) => {
         if (ts.isStringLiteral(element) && element.text === packageName) {
           try {
-            // Get position of require statement
-            const pos = node.getStart(sourceFile);
+            // Get position of the package string literal in the dependencies array
+            const pos = element.getStart(sourceFile) + 1; // +1 to skip the opening quote
             const { line, character } = sourceFile.getLineAndCharacterOfPosition(pos);
             
             // Get the function parameter that corresponds to our package
@@ -424,8 +435,9 @@ export function findPackageUsage(projectRoot: string, packageName: string): Pack
               n.arguments[0].text === packageName) {
             
             try {
-              // Get position of require statement within UMD
-              const pos = n.getStart(sourceFile);
+              // Get position of the package string literal in the require call
+              const moduleSpecifier = n.arguments[0];
+              const pos = moduleSpecifier.getStart(sourceFile) + 1; // +1 to skip the opening quote
               const { line, character } = sourceFile.getLineAndCharacterOfPosition(pos);
               
               results.push({
