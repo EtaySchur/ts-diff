@@ -172,8 +172,8 @@ export function findPackageUsage(projectRoot: string, packageName: string): Pack
           results.push({
             fileName: sourceFile.fileName,
             importStatement: node.getText(sourceFile),
-            line: line + 1, // Make line numbers 1-based
-            character: character + 1,
+            line: line,
+            character: character,
             importedSymbols,
             importStyle: 'ES6Import',
             isDynamicImport: false,
@@ -201,8 +201,8 @@ export function findPackageUsage(projectRoot: string, packageName: string): Pack
         results.push({
           fileName: sourceFile.fileName,
           importStatement: node.getText(sourceFile),
-          line: line + 1,
-          character: character + 1,
+          line: line,
+          character: character,
           importedSymbols: ['(dynamic import)'],
           importStyle: 'DynamicImport',
           isDynamicImport: true,
@@ -278,8 +278,8 @@ export function findPackageUsage(projectRoot: string, packageName: string): Pack
         results.push({
           fileName: sourceFile.fileName,
           importStatement: node.getText(sourceFile),
-          line: line + 1,
-          character: character + 1,
+          line: line,
+          character: character,
           importedSymbols,
           importStyle,
           isDynamicImport: false,
@@ -340,8 +340,8 @@ export function findPackageUsage(projectRoot: string, packageName: string): Pack
             results.push({
               fileName: sourceFile.fileName,
               importStatement: `define([..., '${packageName}', ...], function(..., ${paramName}, ...) { ... })`,
-              line: line + 1,
-              character: character + 1,
+              line: line,
+              character: character,
               importedSymbols: [paramName],
               importStyle: 'AMD',
               isDynamicImport: false,
@@ -389,8 +389,8 @@ export function findPackageUsage(projectRoot: string, packageName: string): Pack
             results.push({
               fileName: sourceFile.fileName,
               importStatement: `require([..., '${packageName}', ...], function(..., ${paramName}, ...) { ... })`,
-              line: line + 1,
-              character: character + 1,
+              line: line,
+              character: character,
               importedSymbols: [paramName],
               importStyle: 'RequireJS',
               isDynamicImport: false,
@@ -431,8 +431,8 @@ export function findPackageUsage(projectRoot: string, packageName: string): Pack
               results.push({
                 fileName: sourceFile.fileName,
                 importStatement: `UMD factory with require('${packageName}')`,
-                line: line + 1,
-                character: character + 1,
+                line: line,
+                character: character,
                 importedSymbols: ['(UMD require)'],
                 importStyle: 'UMD',
                 isDynamicImport: false,
@@ -472,8 +472,8 @@ export function findPackageUsage(projectRoot: string, packageName: string): Pack
           results.push({
             fileName: sourceFile.fileName,
             importStatement: `window.${node.name.text}`,
-            line: line + 1,
-            character: character + 1,
+            line: line,
+            character: character,
             importedSymbols: [node.name.text],
             importStyle: 'GlobalVariable',
             isDynamicImport: false,
@@ -542,8 +542,8 @@ export function findPackageUsage(projectRoot: string, packageName: string): Pack
         actualDefinitionPath: declarationPath,
         isFromTypeDefinition,
         importPosition: {
-          line: line + 1, // Make line numbers 1-based
-          character: character + 1
+          line: line,
+          character: character
         }
       });
     } catch (error) {
@@ -621,8 +621,8 @@ export function findPackageUsage(projectRoot: string, packageName: string): Pack
         
         const symbolUsage = usagesBySymbol.get(symbolName)!;
         symbolUsage.locations.push({
-          line: line + 1, // Make line numbers 1-based
-          character: character + 1,
+          line: line,
+          character: character,
           context
         });
       }
@@ -654,8 +654,8 @@ export function findPackageUsage(projectRoot: string, packageName: string): Pack
           
           const symbolUsage = usagesBySymbol.get(symbolName)!;
           symbolUsage.locations.push({
-            line: line + 1, // Make line numbers 1-based
-            character: character + 1,
+            line: line,
+            character: character,
             context
           });
         }
@@ -759,7 +759,7 @@ export function printPackageUsage(results: PackageUsage[]): void {
       result.symbolUsages.forEach(usage => {
         console.log(`  - ${usage.symbolName} - ${usage.locations.length} usages:`);
         usage.locations.forEach((loc, index) => {
-          console.log(`    ${index + 1}. Line ${loc.line}, Character ${loc.character}`);
+          console.log(`    ${index} Line ${loc.line}, Character ${loc.character}`);
           console.log(`       Context: ${loc.context}`);
         });
       });
