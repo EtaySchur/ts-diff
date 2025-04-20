@@ -319,11 +319,6 @@ function processFileForImports(
           importedSymbols.push(name);
           fileSymbolsMap.set(name, element.name);
           
-          // Debug log for map symbol
-          if (name === 'map') {
-            console.log(`Found 'map' import in ${sourceFile.fileName}`);
-          }
-          
           if (symbolName === '*' || name === symbolName) {
             const elementPos = element.name.getStart(sourceFile);
             const elementLoc = sourceFile.getLineAndCharacterOfPosition(elementPos);
@@ -704,6 +699,9 @@ function findSymbolUsageWithDirectParsing(
         // Skip empty lines
         if (!line.trim()) continue;
         
+        // Skip comment lines
+        if (line.trim().startsWith('//') || line.trim().startsWith('/*') || line.trim().startsWith('*')) continue;
+        
         // Check for imports of the package
         if (line.includes(packageName) && (line.includes('import') || line.includes('require'))) {
           console.log(`  Checking line ${lineIndex + 1}: ${line.trim()}`);
@@ -843,7 +841,7 @@ function extractImportedSymbols(line: string, packageName: string): string[] {
   return symbols;
 }
 
-// Find usages of a symbol in file contents
+// Helper to find usages of a symbol in file contents
 function findSymbolUsagesInFile(lines: string[], symbolName?: string, importVariableName?: string): Array<{line: number, character: number, context: string}> {
   const usages: Array<{line: number, character: number, context: string}> = [];
   
@@ -865,6 +863,11 @@ function findSymbolUsagesInFile(lines: string[], symbolName?: string, importVari
     
     // Skip empty lines or import/require statements
     if (!line || line.includes('import') || line.includes('require(')) {
+      continue;
+    }
+    
+    // Skip comment lines
+    if (line.startsWith('//') || line.startsWith('/*') || line.startsWith('*')) {
       continue;
     }
     
