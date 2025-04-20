@@ -8,6 +8,7 @@
     "analyze-imports": "ts-node src/analyzeImports.ts",
     "find-package-usage": "ts-node src/findPackageUsage.ts",
     "find-symbol-usage": "ts-node src/findSymbolUsage.ts",
+    "analyze-symbol-ast": "ts-node src/analyzeSymbolAst.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
