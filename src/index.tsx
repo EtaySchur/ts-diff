@@ -10,6 +10,7 @@ import ParameterExample from './components/ParameterExample';
 import ActionExample from './components/ActionExample';
 import ChildrenExample from './components/ChildrenExample';
 import StaticContextExample from './components/StaticContextExample';
+import RoutesExample from './components/RoutesExample';
 import './styles.css';
 
 const Navigation = () => (
@@ -24,6 +25,7 @@ const Navigation = () => (
       <li><Link to="/action">Action Example</Link></li>
       <li><Link to="/children">Children Function</Link></li>
       <li><Link to="/static-context">Static Context</Link></li>
+      <li><Link to="/routes">Routes Example</Link></li>
     </ul>
   </div>
 );
@@ -82,6 +84,7 @@ const App = () => {
           <Route path="/action" component={ActionExample} />
           <Route path="/children" component={ChildrenExample} />
           <Route path="/static-context" component={StaticContextExample} />
+          <Route path="/routes" component={RoutesExample} />
           
           {/* Protected route example (v4.3.1 feature) */}
           <ProtectedRoute 

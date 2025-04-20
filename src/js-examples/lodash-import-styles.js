@@ -6,6 +6,7 @@
 const _ = require('lodash');
 
 // Destructured require - imports specific functions
+/** @type {import('lodash')} */
 const { map, filter, reduce } = require('lodash');
 
 // Example usage with CommonJS import
