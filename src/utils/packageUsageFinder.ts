@@ -519,8 +519,9 @@ export function findPackageUsage(projectRoot: string, packageName: string): Pack
       const declarationSourceFile = declaration.getSourceFile();
       const declarationPath = declarationSourceFile.fileName;
       
-      // Check if it's from a type definition package
-      const isFromTypeDefinition = declarationPath.includes('node_modules/@types/');
+      // Check if it's from a type definition package or a .d.ts file
+      const isFromTypeDefinition = declarationPath.includes('node_modules/@types/') || 
+                                  declarationPath.endsWith('.d.ts');
       let actualPackageName = importPackageName;
       
       if (isFromTypeDefinition) {
@@ -701,10 +702,28 @@ export function findPackageUsage(projectRoot: string, packageName: string): Pack
   return results;
 }
 
-// Extract package name from @types path
+// Extract package name from type definition path
 function extractPackageNameFromTypeDef(path: string): string {
-  const match = path.match(/node_modules\/@types\/([^\/]+)/);
-  return match ? match[1] : 'unknown';
+  // Case 1: @types package (e.g. node_modules/@types/react)
+  const typesMatch = path.match(/node_modules\/@types\/([^\/]+)/);
+  if (typesMatch) {
+    return typesMatch[1];
+  }
+  
+  // Case 2: Package's own type definitions (e.g. node_modules/react-query/types/...)
+  const packageTypeMatch = path.match(/node_modules\/([^\/]+)(?:\/[^\/]+)?\/types\//);
+  if (packageTypeMatch) {
+    return packageTypeMatch[1];
+  }
+  
+  // Case 3: Package's .d.ts files outside of types directory
+  const dtsMatch = path.match(/node_modules\/([^\/]+)(?:\/[^\/]+)?\/.*\.d\.ts$/);
+  if (dtsMatch) {
+    return dtsMatch[1];
+  }
+  
+  // Fallback: Unknown
+  return 'unknown';
 }
 
 // Function to print package usage results in a readable format
