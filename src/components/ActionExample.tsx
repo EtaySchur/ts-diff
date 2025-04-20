@@ -1,9 +1,9 @@
 import React from 'react';
-import * as ReactRouter from 'react-router-dom';
+import { RouteComponentProps , Link, Route} from 'react-router-dom';
 
 // This example demonstrates the action property from React Router v4.3.1
 // which was later removed in newer versions
-interface ActionExampleProps extends ReactRouter.RouteComponentProps {}
+interface ActionExampleProps extends RouteComponentProps {}
 
 // Define the location type to avoid 'any' error
 interface LocationObject {
@@ -26,7 +26,7 @@ const ActionExample: React.FC<ActionExampleProps> = (props) => {
         We use 'as any' to suppress TypeScript errors since this API is not in the current types,
         but it did exist in React Router DOM v4.3.1
       */}
-      <ReactRouter.Route
+      <Route
         path={`${props.match.path}/submit`}
         {...{
           // Using spread to add the 'action' property, which TypeScript doesn't know about
@@ -41,9 +41,9 @@ const ActionExample: React.FC<ActionExampleProps> = (props) => {
       />
       
       <div className="example-links">
-        <ReactRouter.Link to={`${props.match.path}/submit`}>
+        <Link to={`${props.match.path}/submit`}>
           Go to action route
-        </ReactRouter.Link>
+        </Link>
       </div>
       
       <div className="info-box">
