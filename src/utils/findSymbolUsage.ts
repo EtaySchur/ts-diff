@@ -1,7 +1,7 @@
 import * as ts from 'typescript';
 import * as path from 'path';
 import * as fs from 'fs';
-import { PackageUsage, SymbolResolution, SymbolUsage } from './packageUsageFinder';
+import { PackageUsage, SymbolUsage } from './packageUsageFinder';
 
 export interface SymbolUsageResult {
   filePath: string;
@@ -74,7 +74,7 @@ export function findSymbolUsage(
         compilerOptions = { ...compilerOptions, ...parsedConfig.options };
       }
     } catch (error) {
-      console.warn(`Warning: Error reading tsconfig.json: ${error}. Using default compiler options.`);
+      // Silently use default compiler options
     }
   }
 
@@ -92,7 +92,6 @@ export function findSymbolUsage(
   // Create program from the files
   const program = ts.createProgram(fileNames, compilerOptions);
   
-  const typeChecker = program.getTypeChecker();
   const packageUsages: PackageUsage[] = [];
   
   // Map to store imported symbols by file for tracking usages
@@ -220,7 +219,6 @@ function visitNodeForImports(
           
           // Get imported symbols
           const importedSymbols: string[] = [];
-          const symbolResolutions: SymbolResolution[] = [];
           
           // Create a new Map for this file if it doesn't exist
           if (!importedSymbolsByFile.has(sourceFile.fileName)) {
@@ -318,7 +316,7 @@ function visitNodeForImports(
             }
           }
         } catch (error) {
-          console.error(`Error processing import in ${sourceFile.fileName}:`, error);
+          // Skip errors in processing imports
         }
       }
     }
@@ -454,7 +452,7 @@ function visitNodeForImports(
           }
         }
       } catch (error) {
-        console.error(`Error processing CommonJS require in ${sourceFile.fileName}:`, error);
+        // Skip errors in processing CommonJS requires
       }
     }
     
@@ -585,8 +583,6 @@ export function analyzeSymbolUsage(
   symbolName: string,
   outputPath?: string
 ): SymbolUsageResult[] {
-  console.log(`Analyzing usage of symbol '${symbolName}' from package '${packageName}' in the project at ${projectRoot}...`);
-  
   try {
     const results = findSymbolUsage(projectRoot, packageName, symbolName);
     
@@ -594,49 +590,11 @@ export function analyzeSymbolUsage(
     const defaultOutputPath = path.join(projectRoot, 'symbol_usage_results.json');
     const finalOutputPath = outputPath || defaultOutputPath;
     
-    // Always save to file
+    // Save to file
     fs.writeFileSync(finalOutputPath, JSON.stringify(results, null, 2), 'utf8');
-    console.log(`Results saved to ${finalOutputPath}`);
-    
-    // Also print to console
-    printSymbolUsage(results);
     
     return results;
   } catch (error) {
-    console.error('Error analyzing symbol usage:', error);
     return [];
   }
-}
-
-/**
- * Prints symbol usage results in a readable format
- * @param results The symbol usage results to print 
- */
-function printSymbolUsage(results: SymbolUsageResult[]): void {
-  if (results.length === 0) {
-    console.log('No symbol usage found.');
-    return;
-  }
-  
-  console.log(`Found ${results.length} symbol usage location(s):\n`);
-  
-  results.forEach((result, index) => {
-    console.log(`${index + 1}. File: ${result.filePath}`);
-    console.log(`   Import: ${result.importStatement}`);
-    console.log(`   At: Line ${result.line + 1}, Character ${result.character + 1}`);
-    console.log(`   Symbol: ${result.importedSymbol}`);
-    console.log(`   Import Style: ${result.importStyle}`);
-    
-    if (result.usageLocations && result.usageLocations.length > 0) {
-      console.log(`   Usages (${result.usageLocations.length}):`);
-      result.usageLocations.forEach((loc, i) => {
-        console.log(`     ${i + 1}. Line ${loc.line + 1}, Character ${loc.character + 1}`);
-        console.log(`        Context: ${loc.context}`);
-      });
-    } else {
-      console.log('   No usages found (symbol is imported but not used)');
-    }
-    
-    console.log('---------------------------------------------------\n');
-  });
 } 
