@@ -121,19 +121,6 @@ export function findSymbolUsage(
 
   console.log(`Found ${fileNames.length} files to analyze`);
   
-  // Print some sample files to verify we're finding the right ones
-  if (fileNames.length > 0) {
-    console.log("Sample files found:");
-    for (let i = 0; i < Math.min(5, fileNames.length); i++) {
-      console.log(`  - ${fileNames[i]}`);
-    }
-    
-    // Specifically check for the lodash examples
-    const lodashFiles = fileNames.filter(file => file.includes('lodash'));
-    console.log(`Found ${lodashFiles.length} lodash-related files:`);
-    lodashFiles.forEach(file => console.log(`  - ${file}`));
-  }
-
   // Create program from the files
   const program = ts.createProgram(fileNames, compilerOptions);
   
@@ -508,7 +495,7 @@ function processFileForUsages(
       });
     }
     
-    // Usage of properties on namespace import: _.map(...)
+    // Usage of properties on namespace import: importedObj.methodName(...)
     if (ts.isPropertyAccessExpression(node) && 
         ts.isIdentifier(node.expression)) {
       const namespace = node.expression.text;
@@ -519,7 +506,7 @@ function processFileForUsages(
         return;
       }
       
-      // For dot notation property access (e.g., _.map)
+      // For dot notation property access (e.g., importedObj.methodName)
       if (symbolName === '*' || property === symbolName) {
         const fullName = `${namespace}.${property}`;
         const pos = node.name.getStart(sourceFile);
@@ -747,12 +734,12 @@ function findSymbolUsageWithDirectParsing(
           else {
             // Extract variable name from import (for property access detection)
             let importVariableName: string | undefined;
-            const constMatch = line.match(/(?:const|let|var)\s+(\w+)\s*=\s*require\s*\(\s*['"]lodash['"]\s*\)/);
+            const constMatch = line.match(new RegExp(`(?:const|let|var)\\s+(\\w+)\\s*=\\s*require\\s*\\(\\s*['"]${packageName}['"]\\s*\\)`));
             if (constMatch && constMatch[1]) {
               importVariableName = constMatch[1];
             }
             
-            const importMatch = line.match(/import\s+(\w+)\s+from\s+['"]lodash['"]/);
+            const importMatch = line.match(new RegExp(`import\\s+(\\w+)\\s+from\\s+['"]${packageName}['"]`));
             if (importMatch && importMatch[1]) {
               importVariableName = importMatch[1];
             }
@@ -853,7 +840,7 @@ function findSymbolUsagesInFile(lines: string[], symbolName?: string, importVari
   // Simple regex to find direct symbol usage
   const symbolPattern = new RegExp(`\\b${symbolName}\\b`, 'g');
   
-  // If we have an import variable (like _ for lodash), also look for property access
+  // If we have an import variable (like _ for a package), also look for property access
   const propertyPattern = importVariableName ? 
     new RegExp(`\\b${importVariableName}\\.${symbolName}\\b`, 'g') : null;
   
@@ -881,7 +868,7 @@ function findSymbolUsagesInFile(lines: string[], symbolName?: string, importVari
       });
     }
     
-    // Look for property access usages if we have an import variable (e.g., _.map)
+    // Look for property access usages if we have an import variable (e.g., importedObj.methodName)
     if (propertyPattern) {
       let propertyMatch;
       while ((propertyMatch = propertyPattern.exec(line)) !== null) {
