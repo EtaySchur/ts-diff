@@ -26,13 +26,13 @@ Run the script with the following parameters:
 
 ```sh
 # Using ts-node (for development)
-npm start -- <projectPath> <packageName> <symbolName> [outputFile]
+npm start -- <projectPath> <packageName> <symbolName> [outputFile] [--verbose]
 
 # Using compiled JavaScript
-node dist/analyze-imports.js <projectPath> <packageName> <symbolName> [outputFile]
+node dist/analyze-imports.js <projectPath> <packageName> <symbolName> [outputFile] [--verbose]
 
 # Or if you made it executable
-./dist/analyze-imports.js <projectPath> <packageName> <symbolName> [outputFile]
+./dist/analyze-imports.js <projectPath> <packageName> <symbolName> [outputFile] [--verbose]
 ```
 
 ### Parameters
@@ -41,16 +41,22 @@ node dist/analyze-imports.js <projectPath> <packageName> <symbolName> [outputFil
 - `packageName`: Name of the package to look for imports from
 - `symbolName`: Name of the symbol to look for (use 'default' for default exports)
 - `outputFile` (optional): Path to a file where the results will be written as JSON
+- `--verbose` or `-v` (optional): Enable verbose mode with detailed logging
 
 ### Example
 
 ```sh
-# Find all imports of useState from react and output to console
+# Find all imports of useState from react and output only the results array
 npm start -- ./my-project react useState
 
-# Find all imports of useState from react and save to a file
-npm start -- ./my-project react useState results.json
+# Find all imports of useState from react with verbose output
+npm start -- ./my-project react useState --verbose
+
+# Find all imports of useState from react and save to a file (with verbose output)
+npm start -- ./my-project react useState results.json --verbose
 ```
+
+By default, the script will output only the JSON results array. Use the `--verbose` flag to see additional information like scanning progress, warnings, and a summary of the analysis.
 
 ### Output
 

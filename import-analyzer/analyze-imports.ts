@@ -24,11 +24,19 @@ interface AnalysisStats {
 }
 
 // Process command line arguments
-const [,, projectPath, packageName, symbolName, outputFile] = process.argv;
+const [,, projectPath, packageName, symbolName, outputFile, verboseArg] = process.argv;
+const verbose = verboseArg === '--verbose' || verboseArg === '-v';
 
 if (!projectPath || !packageName || !symbolName) {
-  console.error('Usage: node analyze-imports.js <projectPath> <packageName> <symbolName> [outputFile]');
+  console.error('Usage: node analyze-imports.js <projectPath> <packageName> <symbolName> [outputFile] [--verbose]');
   process.exit(1);
+}
+
+// Helper function for logging in verbose mode
+function logVerbose(...args: any[]): void {
+  if (verbose) {
+    console.log(...args);
+  }
 }
 
 // Results array
@@ -85,7 +93,7 @@ function analyzeFile(filePath: string): void {
       ast = parse(content, parserOptions);
     } catch (parseError) {
       // Handle parsing errors gracefully
-      console.log(`Warning: Could not parse file ${absoluteFilePath}. Skipping.`);
+      logVerbose(`Warning: Could not parse file ${absoluteFilePath}. Skipping.`);
       stats.filesSkipped++;
       return;
     }
@@ -243,12 +251,12 @@ function analyzeFile(filePath: string): void {
         }
       });
     } catch (traverseError) {
-      console.log(`Warning: Error traversing AST in file ${absoluteFilePath}. Skipping.`);
+      logVerbose(`Warning: Error traversing AST in file ${absoluteFilePath}. Skipping.`);
       stats.filesSkipped++;
     }
   } catch (error) {
     // Handle general file processing errors gracefully
-    console.log(`Warning: Could not process file ${filePath}: ${(error as Error).message}`);
+    logVerbose(`Warning: Could not process file ${filePath}: ${(error as Error).message}`);
     stats.filesSkipped++;
   }
 }
@@ -276,7 +284,7 @@ function writeResultsToFile(results: ImportResult[], outputFile: string): void {
   try {
     const jsonResults = JSON.stringify(results, null, 2);
     fs.writeFileSync(outputFile, jsonResults);
-    console.log(`Results successfully written to ${outputFile}`);
+    logVerbose(`Results successfully written to ${outputFile}`);
   } catch (error) {
     console.error(`Error writing to file ${outputFile}:`, (error as Error).message);
   }
@@ -284,7 +292,7 @@ function writeResultsToFile(results: ImportResult[], outputFile: string): void {
 
 // Start the analysis
 try {
-  console.log(`Scanning ${projectPath} for imports of symbol "${symbolName}" from package "${packageName}"...`);
+  logVerbose(`Scanning ${projectPath} for imports of symbol "${symbolName}" from package "${packageName}"...`);
   
   const startTime = Date.now();
   
@@ -297,20 +305,22 @@ try {
   const duration = (endTime - startTime) / 1000; // in seconds
   
   // Print summary
-  console.log('\nAnalysis Summary:');
-  console.log('------------------------');
-  console.log(`Total files processed: ${stats.filesProcessed}`);
-  console.log(`Files skipped: ${stats.filesSkipped}`);
-  console.log(`Import occurrences found: ${stats.importCount}`);
-  console.log(`Analysis duration: ${duration.toFixed(2)} seconds`);
-  console.log('------------------------');
+  if (verbose) {
+    logVerbose('\nAnalysis Summary:');
+    logVerbose('------------------------');
+    logVerbose(`Total files processed: ${stats.filesProcessed}`);
+    logVerbose(`Files skipped: ${stats.filesSkipped}`);
+    logVerbose(`Import occurrences found: ${stats.importCount}`);
+    logVerbose(`Analysis duration: ${duration.toFixed(2)} seconds`);
+    logVerbose('------------------------');
+  }
   
   // If an output file is specified, write results to the file
   if (outputFile) {
     writeResultsToFile(results, outputFile);
   } else {
     // Otherwise print to console
-    console.log('\nResults:');
+    // Always output the results, regardless of verbose mode
     console.log(JSON.stringify(results, null, 2));
   }
 } catch (error) {
