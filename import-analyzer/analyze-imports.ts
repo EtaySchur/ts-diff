@@ -52,8 +52,12 @@ function analyzeFile(filePath: string): void {
   stats.filesProcessed++;
   
   try {
-    const content = fs.readFileSync(filePath, 'utf8');
-    const extension = path.extname(filePath).toLowerCase();
+    // Convert to absolute path if it's a relative path
+    const absoluteFilePath = path.isAbsolute(filePath) ? 
+      filePath : path.resolve(process.cwd(), filePath);
+    
+    const content = fs.readFileSync(absoluteFilePath, 'utf8');
+    const extension = path.extname(absoluteFilePath).toLowerCase();
     
     // Parse the file content into an AST
     const parserOptions: ParserOptions = {
@@ -81,7 +85,7 @@ function analyzeFile(filePath: string): void {
       ast = parse(content, parserOptions);
     } catch (parseError) {
       // Handle parsing errors gracefully
-      console.log(`Warning: Could not parse file ${filePath}. Skipping.`);
+      console.log(`Warning: Could not parse file ${absoluteFilePath}. Skipping.`);
       stats.filesSkipped++;
       return;
     }
@@ -136,7 +140,7 @@ function analyzeFile(filePath: string): void {
                 }
                 
                 results.push({
-                  fileName: filePath,
+                  fileName: absoluteFilePath,
                   importStatement,
                   line: positionLine,
                   character: positionChar,
@@ -197,7 +201,7 @@ function analyzeFile(filePath: string): void {
                     }
                     
                     results.push({
-                      fileName: filePath,
+                      fileName: absoluteFilePath,
                       importStatement,
                       line: positionLine,
                       character: positionChar,
@@ -225,7 +229,7 @@ function analyzeFile(filePath: string): void {
                   }
                   
                   results.push({
-                    fileName: filePath,
+                    fileName: absoluteFilePath,
                     importStatement,
                     line: positionLine,
                     character: positionChar,
@@ -239,7 +243,7 @@ function analyzeFile(filePath: string): void {
         }
       });
     } catch (traverseError) {
-      console.log(`Warning: Error traversing AST in file ${filePath}. Skipping.`);
+      console.log(`Warning: Error traversing AST in file ${absoluteFilePath}. Skipping.`);
       stats.filesSkipped++;
     }
   } catch (error) {
