@@ -107,7 +107,7 @@ export function findSymbolUsage(
   }
 
   // Get all .js, .jsx, .ts, .tsx files
-  const extensions = ['.js', '.jsx', '.ts', '.tsx'];
+  const extensions = ['.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs'];
   const fileNames: string[] = [];
 
   // If we have a parsed config, use its file names, otherwise scan the directory
@@ -265,6 +265,14 @@ function processFileForImports(
   }
   const fileSymbolsMap = importedSymbolsByFile.get(sourceFile.fileName)!;
   
+  // Determine base import style from file extension
+  let baseImportStyle: 'ES6Import' | 'CommonJS' | undefined;
+  if (sourceFile.fileName.endsWith('.mjs')) {
+    baseImportStyle = 'ES6Import';
+  } else if (sourceFile.fileName.endsWith('.cjs')) {
+    baseImportStyle = 'CommonJS';
+  }
+  
   // Check for imports from the target package
   ts.forEachChild(sourceFile, node => {
     // ES6 imports: import { x } from 'package'
@@ -291,7 +299,7 @@ function processFileForImports(
             line,
             character,
             importedSymbols,
-            importStyle: 'ES6Import',
+            importStyle: baseImportStyle || 'ES6Import',
             isDynamicImport: false,
             symbolUsages: []
           });
@@ -316,7 +324,7 @@ function processFileForImports(
               line: elementLoc.line,
               character: elementLoc.character,
               importedSymbols,
-              importStyle: 'ES6Import',
+              importStyle: baseImportStyle || 'ES6Import',
               isDynamicImport: false,
               symbolUsages: []
             });
@@ -340,7 +348,7 @@ function processFileForImports(
             line: nsLoc.line,
             character: nsLoc.character,
             importedSymbols,
-            importStyle: 'ES6Import',
+            importStyle: baseImportStyle || 'ES6Import',
             isDynamicImport: false,
             symbolUsages: []
           });
@@ -374,11 +382,6 @@ function processFileForImports(
             importedSymbols.push(name);
             fileSymbolsMap.set(name, element.name);
             
-            // Debug log for map symbol
-            if (name === 'map') {
-              console.log(`Found 'map' require in ${sourceFile.fileName}`);
-            }
-            
             if (symbolName === '*' || name === symbolName) {
               const elementPos = element.name.getStart(sourceFile);
               const elementLoc = sourceFile.getLineAndCharacterOfPosition(elementPos);
@@ -389,7 +392,7 @@ function processFileForImports(
                 line: elementLoc.line,
                 character: elementLoc.character,
                 importedSymbols,
-                importStyle: 'CommonJS',
+                importStyle: baseImportStyle || 'CommonJS',
                 isDynamicImport: false,
                 symbolUsages: []
               });
@@ -413,7 +416,7 @@ function processFileForImports(
             line: nameLoc.line,
             character: nameLoc.character,
             importedSymbols,
-            importStyle: 'CommonJS',
+            importStyle: baseImportStyle || 'CommonJS',
             isDynamicImport: false,
             symbolUsages: []
           });
@@ -445,7 +448,7 @@ function processFileForImports(
           line,
           character,
           importedSymbols,
-          importStyle: 'CommonJS',
+          importStyle: baseImportStyle || 'CommonJS',
           isDynamicImport: false,
           symbolUsages: []
         });
@@ -638,7 +641,7 @@ function findSymbolUsageWithDirectParsing(
 ): SymbolUsageResult[] {
   const results: SymbolUsageResult[] = [];
   const fileNames: string[] = [];
-  const extensions = ['.js', '.jsx', '.ts', '.tsx'];
+  const extensions = ['.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs'];
   
   console.log("Using direct file parsing fallback approach");
   
@@ -706,26 +709,47 @@ function findSymbolUsageWithDirectParsing(
                 const usageLocations = findSymbolUsagesInFile(lines, importedSymbol, undefined);
                 console.log(`    Found ${usageLocations.length} usages of ${importedSymbol}`);
                 
+                // Determine import style based on file extension and content
+                let importStyle: string;
+                if (fileName.endsWith('.mjs')) {
+                  importStyle = 'ES6Import';
+                } else if (fileName.endsWith('.cjs')) {
+                  importStyle = 'CommonJS';
+                } else {
+                  importStyle = line.includes('require') ? 'CommonJS' : 'ES6Import';
+                }
+                
                 results.push({
                   filePath: fileName,
                   importStatement,
                   line: lineIndex,
                   character: line.indexOf(packageName),
                   importedSymbol,
-                  importStyle: line.includes('require') ? 'CommonJS' : 'ES6Import',
+                  importStyle,
                   usageLocations
                 });
               }
             } else {
               // If no symbols were extracted but there's a package reference, use a default
               console.log(`    No specific symbols found, using default`);
+              
+              // Determine import style based on file extension and content
+              let importStyle: string;
+              if (fileName.endsWith('.mjs')) {
+                importStyle = 'ES6Import';
+              } else if (fileName.endsWith('.cjs')) {
+                importStyle = 'CommonJS';
+              } else {
+                importStyle = line.includes('require') ? 'CommonJS' : 'ES6Import';
+              }
+              
               results.push({
                 filePath: fileName,
                 importStatement: line.trim(),
                 line: lineIndex,
                 character: line.indexOf(packageName),
                 importedSymbol: packageName, // Use package as default symbol name
-                importStyle: line.includes('require') ? 'CommonJS' : 'ES6Import',
+                importStyle,
                 usageLocations: []
               });
             }
@@ -763,13 +787,23 @@ function findSymbolUsageWithDirectParsing(
               console.log(`    Found ${usageLocations.length} usages of ${symbolName}`);
               
               if (usageLocations.length > 0 || line.includes(symbolName)) {
+                // Determine import style based on file extension and content
+                let importStyle: string;
+                if (fileName.endsWith('.mjs')) {
+                  importStyle = 'ES6Import';
+                } else if (fileName.endsWith('.cjs')) {
+                  importStyle = 'CommonJS';
+                } else {
+                  importStyle = line.includes('require') ? 'CommonJS' : 'ES6Import';
+                }
+                
                 results.push({
                   filePath: fileName,
                   importStatement: line.trim(),
                   line: lineIndex,
                   character: line.indexOf(packageName),
                   importedSymbol: symbolName,
-                  importStyle: line.includes('require') ? 'CommonJS' : 'ES6Import',
+                  importStyle,
                   usageLocations
                 });
               }

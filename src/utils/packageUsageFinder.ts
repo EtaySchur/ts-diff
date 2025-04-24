@@ -69,7 +69,7 @@ export function findPackageUsage(projectRoot: string, packageName: string): Pack
   }
 
   // Get all .js, .jsx, .ts, .tsx files
-  const extensions = ['.js', '.jsx', '.ts', '.tsx'];
+  const extensions = ['.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs'];
   const fileNames: string[] = [];
 
   function readFilesRecursively(dir: string) {
@@ -170,13 +170,23 @@ export function findPackageUsage(projectRoot: string, packageName: string): Pack
             importedSymbols.push('(side-effect only)');
           }
           
+          // Determine importStyle based on file extension
+          let importStyle: 'ES6Import' | 'CommonJS' | 'DynamicImport';
+          if (sourceFile.fileName.endsWith('.mjs')) {
+            importStyle = 'ES6Import';
+          } else if (sourceFile.fileName.endsWith('.cjs')) {
+            importStyle = 'CommonJS';
+          } else {
+            importStyle = 'ES6Import';
+          }
+          
           results.push({
             fileName: sourceFile.fileName,
             importStatement: node.getText(sourceFile),
             line: line,
             character: character,
             importedSymbols,
-            importStyle: 'ES6Import',
+            importStyle,
             isDynamicImport: false,
             symbolResolutions,
             symbolUsages: [] // Will be populated later
@@ -238,7 +248,16 @@ export function findPackageUsage(projectRoot: string, packageName: string): Pack
         
         // Track which symbols are being used from the required module
         const importedSymbols: string[] = [];
-        let importStyle: 'CommonJS' | 'RequireJS' | 'Unknown' = 'CommonJS';
+        
+        // Determine import style based on file extension and context
+        let importStyle: 'CommonJS' | 'RequireJS' | 'ESModuleInterop' | 'Unknown';
+        if (sourceFile.fileName.endsWith('.cjs')) {
+          importStyle = 'CommonJS';
+        } else if (sourceFile.fileName.endsWith('.mjs')) {
+          importStyle = 'ESModuleInterop'; // CommonJS require in an ESM file indicates interop
+        } else {
+          importStyle = 'CommonJS'; // Default
+        }
         
         // Check the parent node to see how require is being used
         let parent = node.parent;
