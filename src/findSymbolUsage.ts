@@ -608,12 +608,16 @@ export function analyzeSymbolUsage(
     console.log(`Analyzing symbol '${symbolName}' in package '${packageName}'...`);
     console.log(`Project root: ${projectRoot}`);
     
-    let results = findSymbolUsage(projectRoot, packageName, symbolName);
+    let results: SymbolUsageResult[] = [];
     
-    // If no results were found, try a fallback direct file analysis approach
+    // First try with TypeScript parser
+    results = findSymbolUsage(projectRoot, packageName, symbolName);
+    
+    // If no results were found, try direct file analysis approach
     if (results.length === 0) {
-      console.log("No results found with TypeScript Parser. Trying fallback approach...");
-      results = findSymbolUsageWithDirectParsing(projectRoot, packageName, symbolName);
+      console.log("No results found with TypeScript Parser. Trying direct parsing approach...");
+      const fallbackResults = findSymbolUsageWithDirectParsing(projectRoot, packageName, symbolName);
+      results = fallbackResults;
     }
     
     console.log(`Found ${results.length} results`);
